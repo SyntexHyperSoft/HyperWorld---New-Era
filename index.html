@@ -17,7 +17,7 @@
   --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
   --ui:'Exo 2','Segoe UI',sans-serif;
   --head:'Russo One','Exo 2',sans-serif;
-  --safe-t:env(safe-area-inset-top,0px);
+  --safe-t:calc(env(safe-area-inset-top,0px) + var(--tg-top,0px));
   --safe-b:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -306,6 +306,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
       <div class="m-stats">
         <span class="chip">КОЛЛЕКЦИЯ <b id="st-col">0/2</b></span>
         <span class="chip">ШАНС РЕДКОЙ <b>43%</b></span>
+        <span class="chip" id="st-guar"></span>
       </div>
     </div>
     <div class="m-stage stage3d">
@@ -404,6 +405,19 @@ function toRaw(url) {
 }
 
 const tg = window.Telegram && window.Telegram.WebApp;
+/* Верхний отступ под кнопки Telegram (закрыть / меню), берём из API Telegram */
+function applyTgInsets() {
+  if (!tg) return;
+  const ins = (tg.contentSafeAreaInset && tg.contentSafeAreaInset.top) || 0;
+  const sa = (tg.safeAreaInset && tg.safeAreaInset.top) || 0;
+  const top = ins + sa;
+  document.documentElement.style.setProperty('--tg-top', (top || 64) + 'px');
+}
+try {
+  applyTgInsets();
+  tg && tg.onEvent && tg.onEvent('contentSafeAreaChanged', applyTgInsets);
+  tg && tg.onEvent && tg.onEvent('safeAreaChanged', applyTgInsets);
+} catch (e) {}
 /* Полноэкранный режим Mini App: раскрыть на весь экран, не закрывать свайпом вниз */
 function goFullscreen() {
   try { tg && tg.requestFullscreen && tg.requestFullscreen(); } catch (e) {}
@@ -455,18 +469,26 @@ const RARITY = {
 
 /* Карточки. chance — шанс в %, сумма 100 */
 const CARDS = [
-  { id: 'erilia',  name: 'Элирия', rar: 'common',    chance: 57, res: 'erilia'  },
-  { id: 'zeiron',  name: 'Зейрон', rar: 'epic',      chance: 23, res: 'zeiron'  },
-  { id: 'aurelia', name: 'Аурелия', rar: 'legendary', chance: 12, res: 'aurelia' },
-  { id: 'kurzhna', name: 'Курэна', rar: 'crystal',   chance: 8,  res: 'kurzhna' }
+  { id: 'erilia',  name: 'Элирия',  rar: 'common',    chance: 57, roll: 59.375, res: 'erilia'  },
+  { id: 'zeiron',  name: 'Зейрон',  rar: 'epic',      chance: 23, roll: 21.875, res: 'zeiron'  },
+  { id: 'aurelia', name: 'Аурелия', rar: 'legendary', chance: 12, roll: 11.111, res: 'aurelia' },
+  { id: 'kurzhna', name: 'Курэна',  rar: 'crystal',   chance: 8,  roll: 7.639,  res: 'kurzhna' }
 ];
 
-/* Выбор карточки по шансам (сумма шансов = 100) */
+/* Выбор карточки.
+   chance — целевая доля редкости в итоге; roll — вероятность при обычном выпадении.
+   roll подобран так, что с учётом гарантий итоговые доли совпадают с chance:
+   гарантии дают эпическую ~2%, легендарную ~1.33%, кристальную ~0.67% открытий. */
 function pickCard() {
+  const n = (PROFILE.opens || 0) + 1;     // номер текущего открытия
+  PROFILE.opens = n;
+  if (n % 150 === 0) return CARDS.find(c => c.rar === 'crystal');
+  if (n % 50 === 0) return CARDS.find(c => c.rar === 'legendary');
+  if (n % 25 === 0) return CARDS.find(c => c.rar === 'epic');
   let r = Math.random() * 100;
   for (const c of CARDS) {
-    if (r < c.chance) return c;
-    r -= c.chance;
+    if (r < c.roll) return c;
+    r -= c.roll;
   }
   return CARDS[CARDS.length - 1];
 }
@@ -786,7 +808,23 @@ function go(name) {
 document.querySelectorAll('.nb').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
 
 function ownedCount() { return CARDS.filter(c => (PROFILE.owned[c.id] || 0) > 0).length; }
-function renderMenu() { $('#st-col').textContent = ownedCount() + '/' + CARDS.length; }
+/* Ближайшее гарантированное выпадение (25 → эпическая, 50 → легендарная, 150 → кристальная) */
+function nextGuarantee() {
+  const cur = PROFILE.opens || 0;
+  for (let n = cur + 1; ; n++) {
+    if (n % 25 === 0) {
+      const rar = n % 150 === 0 ? 'crystal' : n % 50 === 0 ? 'legendary' : 'epic';
+      return { rar, left: n - cur };
+    }
+  }
+}
+const GUAR_NAME = { epic: 'ЭПИЧЕСКАЯ', legendary: 'ЛЕГЕНДАРНАЯ', crystal: 'КРИСТАЛЬНАЯ' };
+function renderMenu() {
+  $('#st-col').textContent = ownedCount() + '/' + CARDS.length;
+  const g = nextGuarantee();
+  const when = g.left === 1 ? 'СЛЕДУЮЩЕЕ' : 'ЧЕРЕЗ ' + g.left;
+  $('#st-guar').innerHTML = `ГАРАНТИЯ <b style="color:${RARITY[g.rar].rc}">${GUAR_NAME[g.rar]}</b> · ${when}`;
+}
 /* ---------- Звёзды: повторки → уровни (макс. 5★) ---------- */
 /* Повторок нужно для перехода с текущей звезды на следующую (счёт идёт с нуля на каждом уровне) */
 const REQ = { 1: 5, 2: 10, 3: 20, 4: 40 };

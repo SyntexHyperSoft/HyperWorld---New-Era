@@ -211,12 +211,12 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 .bdg-wrap{perspective:900px}
 .bdg{position:relative;width:min(82vw,310px);padding:22px 20px 18px;text-align:center;overflow:hidden;
   background:linear-gradient(160deg,rgba(14,22,30,.97),rgba(6,9,13,.97));border:1px solid var(--rc);
-  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px);
+  
   box-shadow:0 0 60px var(--glow),inset 0 0 40px rgba(255,255,255,.04);transform-style:preserve-3d}
 .bdg::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.14) 50%,transparent 60%);transform:translateX(-110%);animation:sheen 3.2s ease-in-out infinite}
 .bdg-top{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
 .bdg-name{font-family:var(--head);font-size:20px;letter-spacing:.08em;color:#fff}
-.bdg-face{width:124px;height:124px;margin:14px auto 12px;border:2px solid var(--rc);box-shadow:0 0 26px var(--glow);background-color:#05080c;background-repeat:no-repeat;background-size:260% auto;background-position:50% 6%}
+.bdg-face{width:124px;height:124px;margin:14px auto 12px;border:2px solid var(--rc);box-shadow:0 0 26px var(--glow);background-color:#05080c;background-repeat:no-repeat;background-size:cover;background-position:center}
 .bdg-stars{min-height:22px}
 .bdg-stars .stars svg{width:20px;height:20px}
 .bdg-bar{position:relative;height:14px;margin:16px 0 10px;background:rgba(255,255,255,.14);border:1px solid var(--rc);box-shadow:inset 0 0 8px rgba(0,0,0,.6),0 0 12px var(--glow);overflow:hidden}
@@ -281,7 +281,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
       <path d="M22 48h20"/>
     </svg>
     <div class="upd-title">Доступно обновление</div>
-    <div class="upd-text">Мы обнаружили, что у вас не хватает (<b id="updSize">0 B</b>) ресурсов. Обновите игру, чтобы дальше продолжить играть с новыми возможностями!</div>
+    <div class="upd-text" id="updText">Мы обнаружили, что у вас не хватает (<b id="updSize">0 B</b>) ресурсов. Обновите игру, чтобы дальше продолжить играть с новыми возможностями!</div>
     <button class="btn" id="updBtn">ЗАГРУЗИТЬ</button>
   </div>
 </div>
@@ -573,16 +573,21 @@ async function gitBlobSha(blob) {
   return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 /* Ресурсы, которых нет в кеше или которые изменены на GitHub */
+let LAST_OUTDATED = false;   // true, если всё недостающее — лишь устаревшие версии
 async function findMissing() {
   const recs = {};
   for (const r of RESOURCES) recs[r.id] = await kvGet('res:' + r.id).catch(() => null);
   await fetchRemoteShas();
-  return RESOURCES.filter(r => {
+  let anyMissing = false, anyOutdated = false;
+  const list = RESOURCES.filter(r => {
     const rec = recs[r.id];
-    if (!rec || !rec.blob || !(rec.blob.size > 0)) return true;
+    if (!rec || !rec.blob || !(rec.blob.size > 0)) { anyMissing = true; return true; }
     const remote = REMOTE_SHA[r.id];
-    return !!remote && rec.sha !== remote;
+    if (remote && rec.sha !== remote) { anyOutdated = true; return true; }
+    return false;
   });
+  LAST_OUTDATED = anyOutdated && !anyMissing;
+  return list;
 }
 
 /* ---------- Скачивание с прогрессом ---------- */
@@ -716,7 +721,7 @@ function paint(p, sizeText) {
   p = Math.max(0, Math.min(100, p));
   curP = p;
   LD.fill.style.transform = `scaleX(${p / 100})`;
-  LD.pct.textContent = `(${p.toFixed(2).padStart(5, '0')}%)`;
+  LD.pct.textContent = `(${p >= 100 ? '100.0' : p.toFixed(2).padStart(5, '0')}%)`;
   if (sizeText !== undefined) LD.size.textContent = sizeText;
 }
 function fmtSize(b) {
@@ -1192,13 +1197,35 @@ function setFill(p, anim) {
   bdg.fill.style.transition = anim ? 'width .9s cubic-bezier(.2,.7,.2,1)' : 'none';
   bdg.fill.style.width = p + '%';
 }
+/* Квадратный кадр лица: вырезаем голову с картинки героя (один раз, потом из памяти) */
+const faceCache = new Map();
+function faceUrl(url) {
+  if (!faceCache.has(url)) {
+    faceCache.set(url, new Promise(res => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth, h = img.naturalHeight;
+        const side = Math.min(h * 0.36, w);
+        const sx = Math.max(0, Math.min(w - side, w / 2 - side / 2));
+        const sy = Math.max(0, h * 0.2 - side / 2);
+        const c = document.createElement('canvas');
+        c.width = c.height = 256;
+        c.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, 256, 256);
+        res(c.toDataURL('image/png'));
+      };
+      img.onerror = () => res('');
+      img.src = url;
+    }));
+  }
+  return faceCache.get(url);
+}
 async function showBadge(card, before, after, url) {
   const R = RARITY[card.rar];
   bdg.root.style.setProperty('--rc', R.rc);
   bdg.root.style.setProperty('--glow', R.glow);
   bdg.name.textContent = card.name;
   bdg.rar.innerHTML = rarHTML(card.rar);
-  bdg.face.style.backgroundImage = `url("${url}")`;
+  faceUrl(url).then(d => { if (d) bdg.face.style.backgroundImage = `url("${d}")`; });
   const oldI = levelInfo(before), newI = levelInfo(after);
   bdg.stars.innerHTML = starsHTML(oldI.stars, card.rar);
   bdg.lvl.classList.remove('show');
@@ -1339,36 +1366,54 @@ $('#open-btn').addEventListener('click', openCard);
    3. докачка недостающего с прогрессом (музыка стартует сразу, как только готова)
    4. завершение: загрузчик скрывается, музыка останавливается
    ========================================================================= */
-async function downloadMissing(list, base) {
-  setMsg('// Обращение к базе данных HyperWorld');
+/* Этап загрузчика: своя шкала от 0 до 100% */
+async function stage(msg, work, minMs = 700, auto = true) {
+  paint(0);
+  setMsg(msg);
+  const t0 = performance.now();
+  let working = true;
+  const timer = auto ? setInterval(() => { if (working) paint(curP + (90 - curP) * 0.04); }, 60) : null;
+  let r;
+  try { r = await work(); }
+  finally { working = false; if (timer) clearInterval(timer); }
+  const left = minMs - (performance.now() - t0);
+  if (left > 0) await animateTo(100, left); else paint(100);
+  return r;
+}
+async function downloadMissing(list) {
   const total = list.reduce((s, r) => s + r.size, 0);
   let done = 0;
-  LD.size.style.display = 'block';
-  for (const r of list) {
-    try {
-      const blob = await fetchWithProgress(r.url, recv => {
-        const dl = Math.min(done + recv, total);
-        paint(base + (100 - base) * dl / total, `${fmtSize(dl)} / ${fmtSize(total)}`);
-      });
-      if (!blob.size) throw new Error('пустой файл');
-      const sha = await gitBlobSha(blob).catch(() => null);
-      await kvSet('res:' + r.id, { blob, size: blob.size, sha, savedAt: Date.now() });
-      if (urlCache[r.id]) URL.revokeObjectURL(urlCache[r.id]);
-      urlCache[r.id] = URL.createObjectURL(new Blob([blob], { type: r.type }));
-      done += blob.size;
-    } catch (e) {
-      setMsg('// Ошибка загрузки: ' + r.label);
-      await sleep(1500);
-      setMsg('// Обращение к базе данных HyperWorld');
+  return stage('// Обращение к базе данных HyperWorld', async () => {
+    LD.size.style.display = 'block';
+    for (const r of list) {
+      try {
+        const blob = await fetchWithProgress(r.url, recv => {
+          const dl = Math.min(done + recv, total);
+          paint(dl / total * 100, `${fmtSize(dl)} / ${fmtSize(total)}`);
+        });
+        if (!blob.size) throw new Error('пустой файл');
+        const sha = await gitBlobSha(blob).catch(() => null);
+        await kvSet('res:' + r.id, { blob, size: blob.size, sha, savedAt: Date.now() });
+        if (urlCache[r.id]) URL.revokeObjectURL(urlCache[r.id]);
+        urlCache[r.id] = URL.createObjectURL(new Blob([blob], { type: r.type }));
+        done += blob.size;
+      } catch (e) {
+        setMsg('// Ошибка загрузки: ' + r.label);
+        await sleep(1500);
+        setMsg('// Обращение к базе данных HyperWorld');
+      }
     }
-  }
-  LD.size.style.display = 'none';
-  paint(100);
+    LD.size.style.display = 'none';
+  }, 300, false);
 }
 
-function askUpdate(bytes) {
+function askUpdate(bytes, outdated) {
   return new Promise(res => {
-    $('#updSize').textContent = fmtSize(bytes);
+    const t = $('#updText');
+    t.innerHTML = outdated
+      ? 'Мы обнаружили, что у вас имеются устаревшие ресурсы героев. Обновите игру, чтобы дальше продолжить играть с новыми героями!'
+      : 'Мы обнаружили, что у вас не хватает (<b id="updSize">0 B</b>) ресурсов. Обновите игру, чтобы дальше продолжить играть с новыми возможностями!';
+    if ($('#updSize')) $('#updSize').textContent = fmtSize(bytes);
     const u = $('#upd');
     u.classList.add('on');
     $('#updBtn').onclick = () => {
@@ -1378,44 +1423,36 @@ function askUpdate(bytes) {
   });
 }
 
-/* Фаза 1: инициализация → проверка → (окно обновления + докачка) */
+/* Фаза 1: инициализация → проверка → (окно обновления + загрузка) */
 async function phaseCheck() {
-  paint(0);
-  setMsg('// Инициализация игры');
-  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  await stage('// Инициализация игры', async () => {
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    const keys = await resKeys();
+    if (keys.includes('music')) { await loadCachedUrls(); playBgm(urlOf('music')); }
+    else playBgm(RES.music.url);
+  }, 900);
 
-  const keys = await resKeys();
-  if (keys.includes('music')) { await loadCachedUrls(); playBgm(urlOf('music')); }
-  else playBgm(RES.music.url);
-  await animateTo(20, 900);
+  const missing = await stage('// Проверка ресурсов игры', async () => {
+    await loadCachedUrls();
+    return findMissing();
+  }, 700);
 
-  setMsg('// Проверка ресурсов игры');
-  await loadCachedUrls();
-  await animateTo(30, 500);
-  const missing = await findMissing();
   if (missing.length) {
-    await askUpdate(missing.reduce((s, r) => s + r.size, 0));
-    await downloadMissing(missing, 30);
+    await askUpdate(missing.reduce((s, r) => s + r.size, 0), LAST_OUTDATED);
+    await downloadMissing(missing);
   }
-  await animateTo(100, 300);
 }
 
-/* Фаза 2 (после заставки): повторная проверка → загрузка игры → меню */
+/* Фаза 2: финальная проверка → загрузка игры → меню */
 async function phaseFinal() {
-  paint(0);
-  setMsg('// Проверка ресурсов игры');
   if (bgm && bgm.src) bgm.play().catch(() => {});
-  await animateTo(40, 700);
-  const keys = await resKeys();
-  const missing = await findMissing();
-  if (missing.length) await downloadMissing(missing, 40);
-  await loadCachedUrls();
-
-  setMsg('// Загружаем ресурсы игры');
-  await animateTo(100, 900);
-  await loadProfile().catch(() => {});
+  const missing = await stage('// Проверка ресурсов игры', async () => findMissing(), 700);
+  if (missing.length) await downloadMissing(missing);
+  await stage('// Загружаем ресурсы игры', async () => {
+    await loadCachedUrls();
+    await loadProfile().catch(() => {});
+  }, 900);
   await sleep(400);
-
   stopBgm();
   LD.loader.classList.add('done');
   await sleep(600);
@@ -1428,11 +1465,9 @@ async function afterHumanCheck() {
   if (!introUrl) {
     // Интро ещё не скачано: показываем прогресс загрузчика
     LD.loader.classList.remove('done');
-    paint(0, '');
-    setMsg('// Обращение к базе данных HyperWorld');
     LD.size.style.display = 'block';
     introCb = n => paint(Math.min(100, n / RES.intro.size * 100), `${fmtSize(n)} / ${fmtSize(RES.intro.size)}`);
-    introUrl = await prefetchIntro();
+    introUrl = await stage('// Обращение к базе данных HyperWorld', () => prefetchIntro(), 300, false);
     introCb = null;
     LD.size.style.display = 'none';
   }

@@ -158,7 +158,8 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 .avatar::before{content:"";position:absolute;inset:-3px;border-radius:50%;z-index:-1;background:conic-gradient(from 0deg,var(--cy),var(--acc),#a78bfa,#fff,var(--cy));animation:spin 6s linear infinite}
 .avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;background:#07090c}
 .pl{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--dim)}
-.pid{font-family:var(--mono);font-size:15px;letter-spacing:.12em;color:var(--cy);margin-top:10px;word-break:break-all}
+.pname{font-family:var(--head);font-size:22px;letter-spacing:.06em;color:#fff;word-break:break-word}
+.puser{font-family:var(--mono);font-size:14px;letter-spacing:.06em;color:var(--cy);margin-top:8px;word-break:break-all}
 
 /* ===================== ОТКРЫТИЕ КАРТОЧКИ ===================== */
 #s-reveal{position:fixed;inset:0;z-index:30;background:#000;opacity:0;pointer-events:none;transition:opacity .5s}
@@ -259,7 +260,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
     </div>
     <div class="lb-size" id="lbSize" style="display:none"></div>
     <div class="lb-row2">
-      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.0</span>
+      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.1 (Beta)</span>
       <div class="lb-progress"><i id="lbFill"></i></div>
     </div>
     <div id="sound-hint">ТАПНИТЕ, ЧТОБЫ ВКЛЮЧИТЬ МУЗЫКУ</div>
@@ -329,8 +330,8 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
     <div class="wrap">
       <div class="prof">
         <div class="avatar"><img id="avatar" alt=""></div>
-        <div class="pl">ID ПРОФИЛЯ</div>
-        <div class="pid" id="pid"></div>
+        <div class="pname" id="pname"></div>
+        <div class="puser" id="puser"></div>
       </div>
     </div>
   </section>
@@ -398,7 +399,22 @@ function toRaw(url) {
 }
 
 const tg = window.Telegram && window.Telegram.WebApp;
-try { tg && tg.ready(); tg && tg.expand(); tg && tg.setHeaderColor && tg.setHeaderColor('#ffffff'); } catch (e) {}
+/* Полноэкранный режим Mini App: раскрыть на весь экран, не закрывать свайпом вниз */
+function goFullscreen() {
+  try { tg && tg.requestFullscreen && tg.requestFullscreen(); } catch (e) {}
+}
+try {
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.disableVerticalSwipes && tg.disableVerticalSwipes();
+    tg.setHeaderColor && tg.setHeaderColor('#07090c');
+    tg.setBackgroundColor && tg.setBackgroundColor('#07090c');
+    goFullscreen();
+    // Некоторые клиенты разрешают полноэкранный режим только после жеста пользователя
+    addEventListener('pointerdown', goFullscreen, { once: true });
+  }
+} catch (e) {}
 
 const $ = s => document.querySelector(s);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -510,7 +526,12 @@ async function loadProfile() {
   if (saved) PROFILE = Object.assign(PROFILE, saved);
   PROFILE.owned = PROFILE.owned || {};
   const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
-  if (u) { PROFILE.id = 'TG-' + u.id; PROFILE.name = u.first_name || 'HW'; PROFILE.photo = u.photo_url || null; }
+  if (u) {
+    PROFILE.name = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'HW';
+    PROFILE.username = u.username || null;
+    PROFILE.photo = u.photo_url || null;
+  }
+  PROFILE.name = PROFILE.name || 'Гость';
 }
 function saveProfile() { kvSet('profile', PROFILE).catch(() => {}); }
 
@@ -772,7 +793,8 @@ function avatarSVG(ch) {
 function renderSettings() {
   const ch = ((PROFILE.name || 'H')[0] || 'H').toUpperCase();
   $('#avatar').src = PROFILE.photo || avatarSVG(ch);
-  $('#pid').textContent = PROFILE.id;
+  $('#pname').textContent = PROFILE.name || 'Гость';
+  $('#puser').textContent = PROFILE.username ? '@' + PROFILE.username : 'Username не задан';
 }
 
 /* ---------- Открытие карточки ---------- */

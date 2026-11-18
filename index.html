@@ -305,7 +305,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
       <div class="m-sub">Карточные бойцы</div>
       <div class="m-stats">
         <span class="chip">КОЛЛЕКЦИЯ <b id="st-col">0/2</b></span>
-        <span class="chip">ШАНС РЕДКОЙ <b>11.88%</b></span>
+        <span class="chip">ШАНС РЕДКОЙ <b>43%</b></span>
       </div>
     </div>
     <div class="m-stage stage3d">
@@ -436,7 +436,9 @@ const RESOURCES = [
   { id: 'kurzhna', url: toRaw(NE + '%D0%9A%D1%83%D1%80%D1%8D%D0%BD%D0%B0.png'), type: 'image/png', size: 1546504, label: 'Курэна' },
   { id: 'sfx_new',  url: toRaw(NE + '%D0%9D%D0%BE%D0%B2%D0%B0%D1%8F.mp3'), type: 'audio/mpeg', size: 38022, label: 'Новая карточка' },
   { id: 'sfx_dupe', url: toRaw(NE + '%D0%9F%D0%BE%D0%B2%D1%82%D0%BE%D1%80%D0%BA%D0%B0.mp3'), type: 'audio/mpeg', size: 90925, label: 'Повторка' },
-  { id: 'sfx_star', url: toRaw(NE + 'StarUP.mp3'), type: 'audio/mpeg', size: 21523, label: 'Повышение звезды' }
+  { id: 'sfx_star', url: toRaw(NE + 'StarUP.mp3'), type: 'audio/mpeg', size: 21523, label: 'Повышение звезды' },
+  { id: 'zeiron',  url: toRaw(NE + '%D0%97%D0%B5%D0%B9%D1%80%D0%BE%D0%BD.png'), type: 'image/png', size: 2778302, label: 'Зейрон' },
+  { id: 'aurelia', url: toRaw(NE + '%D0%90%D1%83%D1%80%D0%B5%D0%BB%D0%B8%D1%8F.png'), type: 'image/png', size: 2303032, label: 'Аурелия' }
 ];
 const RES = Object.fromEntries(RESOURCES.map(r => [r.id, r]));
 
@@ -453,9 +455,21 @@ const RARITY = {
 
 /* Карточки. chance — шанс в %, сумма 100 */
 const CARDS = [
-  { id: 'erilia',  name: 'Элирия', rar: 'common',  chance: 88.12, res: 'erilia'  },
-  { id: 'kurzhna', name: 'Курэна', rar: 'crystal', chance: 11.88, res: 'kurzhna' }
+  { id: 'erilia',  name: 'Элирия', rar: 'common',    chance: 57, res: 'erilia'  },
+  { id: 'zeiron',  name: 'Зейрон', rar: 'epic',      chance: 23, res: 'zeiron'  },
+  { id: 'aurelia', name: 'Аурелия', rar: 'legendary', chance: 12, res: 'aurelia' },
+  { id: 'kurzhna', name: 'Курэна', rar: 'crystal',   chance: 8,  res: 'kurzhna' }
 ];
+
+/* Выбор карточки по шансам (сумма шансов = 100) */
+function pickCard() {
+  let r = Math.random() * 100;
+  for (const c of CARDS) {
+    if (r < c.chance) return c;
+    r -= c.chance;
+  }
+  return CARDS[CARDS.length - 1];
+}
 
 /* ---------- IndexedDB (хранилище kv: ресурсы и профиль) ---------- */
 let dbP = null;
@@ -1079,8 +1093,7 @@ async function openCard() {
   busy = true;
   await threeReady;
 
-  const roll = Math.random() * 100;
-  const card = CARDS.find(c => c.id === (roll < 11.88 ? 'kurzhna' : 'erilia'));
+  const card = pickCard();
   const before = { ...getLvl(card.id) };
   const dupe = (PROFILE.owned[card.id] || 0) > 0;
   PROFILE.owned[card.id] = (PROFILE.owned[card.id] || 0) + 1;

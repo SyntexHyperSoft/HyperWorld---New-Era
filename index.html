@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#07090c">
+<meta name="color-scheme" content="dark">
 <title>HyperWorld</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Exo+2:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-:root{
+:root{color-scheme:dark;
   --ink:#07090c; --ink2:#e9eef2; --dim:#6d7b86;
   --acc:#ffe14a; --cy:#38e8ff; --vi:#a78bfa;
   --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
@@ -243,6 +243,9 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 .upd-text{font-size:13.5px;line-height:1.5;color:#b9c7d1;margin-bottom:20px}
 .upd-text b{color:var(--acc);font-family:var(--mono);font-weight:700}
 #upd .btn{margin:0 auto;width:100%}
+/* ===== GPU: слои для анимаций ===== */
+.hwcard,.bigbtn,#nav,.nb,.screen,#loader,#s-badge .bdg{will-change:transform,opacity}
+#rv-canvas{will-change:transform}
 </style>
 </head>
 <body>
@@ -418,6 +421,7 @@ try {
   }
 } catch (e) {}
 
+let threeReady = Promise.resolve();
 const $ = s => document.querySelector(s);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -657,7 +661,8 @@ function ambient(canvas, density = 60) {
   }
   size();
   addEventListener('resize', size);
-  (function frame() {
+  let ambOn = true;
+  function frame() {
     ctx.clearRect(0, 0, W, H);
     for (const p of pts) {
       p.x += p.vx; p.y += p.vy;
@@ -679,8 +684,13 @@ function ambient(canvas, density = 60) {
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
+    if (document.hidden) { ambOn = false; return; }
     requestAnimationFrame(frame);
-  })();
+  }
+  frame();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !ambOn) { ambOn = true; frame(); }
+  });
 }
 function burstFX(canvas) {
   const ctx = canvas.getContext('2d');
@@ -739,7 +749,12 @@ function makeCard(rar) {
   tilt(el);
   return el;
 }
+const rarMemo = new Map();
 function rarHTML(rar) {
+  if (!rarMemo.has(rar)) rarMemo.set(rar, buildRar(rar));
+  return rarMemo.get(rar);
+}
+function buildRar(rar) {
   const R = RARITY[rar];
   return `<div class="rar3d" data-text="${R.name}"><span style="background-image:${R.grad}">${R.name}</span></div>`;
 }
@@ -778,7 +793,13 @@ function levelInfo(s) {
   return { stars: s.stars, prog: s.prog, req, pct };
 }
 const STAR_PATH = 'M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1l1.2-6.9-5-4.9 6.9-1z';
+const starMemo = new Map();
 function starsHTML(n, rar) {
+  const key = n + rar;
+  if (!starMemo.has(key)) starMemo.set(key, buildStars(n, rar));
+  return starMemo.get(key);
+}
+function buildStars(n, rar) {
   const R = RARITY[rar];
   const items = [1, 2, 3, 4, 5].map(i => `<svg viewBox="0 0 24 24" class="${i <= n ? 'on' : ''}"><path d="${STAR_PATH}"/></svg>`).join('');
   return `<div class="stars" style="--rc:${R.rc}">${items}</div>`;
@@ -832,6 +853,8 @@ const rv = {
 };
 const RevealFX = (() => {
   const N = 450;
+  const RND = new Float32Array(N * 8);
+  for (let i = 0; i < RND.length; i++) RND[i] = Math.random();
   const GAP = 16;                       // отступ частиц от контура карточки, px
   let renderer = null, scene, camera, points, geo, mat, shock, raf = 0, t = 0, ok = null;
   let burstAge = -1, shockT = 0, cx = 0, cy = 0;
@@ -895,19 +918,25 @@ const RevealFX = (() => {
     cx = (rect.left + rect.width / 2 - innerWidth / 2) * w;
     cy = -(rect.top + rect.height / 2 - innerHeight / 2) * w;
     for (let i = 0; i < N; i++) {
-      const [x, y] = rectPoint(hw * w, hh * w, (i + Math.random() * .6) / N);
-      const k = i * 3;
-      base[k] = cx + x + (Math.random() - .5) * .08;
-      base[k + 1] = cy + y + (Math.random() - .5) * .08;
-      base[k + 2] = (Math.random() - .5) * .25;
-      ph[i] = Math.random() * 6.28;
+      const r = i * 8, k = i * 3;
+      const p = rectPoint(hw * w, hh * w, (i + RND[r] * .6) / N);
+      base[k] = cx + p[0] + (RND[r + 1] - .5) * .08;
+      base[k + 1] = cy + p[1] + (RND[r + 2] - .5) * .08;
+      base[k + 2] = (RND[r + 3] - .5) * .25;
+      ph[i] = RND[r + 4] * 6.28;
       off[k] = off[k + 1] = off[k + 2] = 0;
       vel[k] = vel[k + 1] = vel[k + 2] = 0;
     }
     shock.position.set(cx, cy, 0);
   }
+  const palCache = new Map();
+  function palette(fx) {
+    const key = fx.join();
+    if (!palCache.has(key)) palCache.set(key, fx.map(h => new THREE.Color(h)));
+    return palCache.get(key);
+  }
   function setColors(fx) {
-    const cs = fx.map(h => new THREE.Color(h));
+    const cs = palette(fx);
     for (let i = 0; i < N; i++) {
       const c = cs[i % cs.length];
       col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
@@ -959,11 +988,10 @@ const RevealFX = (() => {
     const h = 2 * 9 * Math.tan(27.5 * Math.PI / 180);
     const w = h * camera.aspect;
     for (let i = 0; i < N; i++) {
-      const k = i * 3;
-      const nx = (Math.random() - .5) * w * 1.05;
-      const ny = (Math.random() - .5) * h * 1.05;
-      const nz = (Math.random() - .5) * 1.2;
-      // сохраняем текущую позицию, и частица плавно уходит на новое место по экрану
+      const r = i * 8, k = i * 3;
+      const nx = (RND[r + 5] - .5) * w * 1.05;
+      const ny = (RND[r + 6] - .5) * h * 1.05;
+      const nz = (RND[r + 7] - .5) * 1.2;
       off[k] = pos[k] - nx;
       off[k + 1] = pos[k + 1] - ny;
       off[k + 2] = pos[k + 2] - nz;
@@ -1049,6 +1077,7 @@ async function showBadge(card, before, after, url) {
 async function openCard() {
   if (busy) return;
   busy = true;
+  await threeReady;
 
   const roll = Math.random() * 100;
   const card = CARDS.find(c => c.id === (roll < 11.88 ? 'kurzhna' : 'erilia'));
@@ -1272,6 +1301,13 @@ async function afterHumanCheck() {
 
 (async function start() {
   prefetchIntro();
+  threeReady = new Promise(res => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    sc.onload = res;
+    sc.onerror = res;
+    document.head.appendChild(sc);
+  });
   let started = false;
   const begin = () => { if (!started) { started = true; afterHumanCheck(); } };
   try {

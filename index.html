@@ -562,6 +562,52 @@ async function loadCachedUrls() {
 }
 
 /* ---------- Профиль ---------- */
+/* ---------- Облако Telegram (CloudStorage): прогресс на всех сессиях ---------- */
+const CLOUD_KEY = 'hw_save';
+function cloudCall(fn) {
+  return new Promise(res => {
+    let done = false;
+    const t = setTimeout(() => { if (!done) { done = true; res(null); } }, 3000);
+    try {
+      fn((err, val) => { if (done) return; done = true; clearTimeout(t); res(err ? null : val); });
+    } catch (e) {
+      clearTimeout(t);
+      if (!done) { done = true; res(null); }
+    }
+  });
+}
+async function cloudGet() {
+  if (!(tg && tg.CloudStorage)) return null;
+  const v = await cloudCall(cb => tg.CloudStorage.getItem(CLOUD_KEY, cb));
+  try { return v ? JSON.parse(v) : null; } catch (e) { return null; }
+}
+function cloudSet(data) {
+  if (!(tg && tg.CloudStorage)) return;
+  try {
+    const str = JSON.stringify(data);
+    if (str.length > 4000) return;          // лимит одного ключа Telegram — 4096 байт
+    tg.CloudStorage.setItem(CLOUD_KEY, str, () => {});
+  } catch (e) {}
+}
+/* Слияние локального и облачного прогресса: ничего не теряется */
+function lvlGreater(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  if (a.stars !== b.stars) return a.stars > b.stars ? a : b;
+  return a.prog >= b.prog ? a : b;
+}
+function mergeSave(a, b) {
+  const owned = {}, lvl = {};
+  const ids = new Set([...Object.keys(a.owned || {}), ...Object.keys(b.owned || {}),
+                       ...Object.keys(a.lvl || {}), ...Object.keys(b.lvl || {})]);
+  for (const id of ids) {
+    owned[id] = Math.max((a.owned || {})[id] || 0, (b.owned || {})[id] || 0);
+    const l = lvlGreater((a.lvl || {})[id], (b.lvl || {})[id]);
+    if (l) lvl[id] = l;
+  }
+  return { owned, lvl, opens: Math.max(a.opens || 0, b.opens || 0) };
+}
+
 let PROFILE = { owned: {}, id: 'HW-' + Math.random().toString(16).slice(2, 10).toUpperCase() };
 async function loadProfile() {
   const saved = await kvGet('profile').catch(() => null);
@@ -575,8 +621,19 @@ async function loadProfile() {
     PROFILE.tgId = u.id;
   }
   PROFILE.name = PROFILE.name || 'Гость';
+  const cloud = await cloudGet();
+  if (cloud) {
+    const m = mergeSave(PROFILE, cloud);
+    PROFILE.owned = m.owned;
+    PROFILE.lvl = m.lvl;
+    PROFILE.opens = m.opens;
+  }
+  saveProfile();
 }
-function saveProfile() { kvSet('profile', PROFILE).catch(() => {}); }
+function saveProfile() {
+  kvSet('profile', PROFILE).catch(() => {});
+  cloudSet({ owned: PROFILE.owned || {}, lvl: PROFILE.lvl || {}, opens: PROFILE.opens || 0 });
+}
 
 /* ---------- Музыка: только во время загрузки ---------- */
 let bgm = null;

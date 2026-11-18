@@ -76,7 +76,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 /* ===================== ЗАСТАВКА ===================== */
 #s-intro{position:fixed;inset:0;z-index:40;background:#000;display:none}
 #s-intro.on{display:block}
-#intro-video{width:100%;height:100%;object-fit:cover;background:#000;display:block}
+#intro-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;display:block}
 #intro-tap{position:absolute;inset:0;display:none;place-items:center;background:rgba(0,0,0,.7);z-index:3;font-family:var(--head);color:var(--acc);letter-spacing:.2em;font-size:18px;cursor:pointer}
 #intro-tap.on{display:grid}
 #intro-skip{position:absolute;right:16px;bottom:calc(16px + var(--safe-b));z-index:2;font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:#fff;background:rgba(0,0,0,.45);border:1px solid rgba(56,232,255,.42);padding:9px 14px;opacity:0;transition:opacity .4s;cursor:pointer}
@@ -160,10 +160,12 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 .pl{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--dim)}
 .pname{font-family:var(--head);font-size:22px;letter-spacing:.06em;color:#fff;word-break:break-word}
 .puser{font-family:var(--mono);font-size:14px;letter-spacing:.06em;color:var(--cy);margin-top:8px;word-break:break-all}
+.pid{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--dim);margin-top:8px}
 
 /* ===================== ОТКРЫТИЕ КАРТОЧКИ ===================== */
 #s-reveal{position:fixed;inset:0;z-index:30;background:#000;opacity:0;pointer-events:none;transition:opacity .5s}
 #s-reveal.on{opacity:1;pointer-events:auto}
+#s-reveal:not(.on) *{pointer-events:none!important}
 #rv-bg{position:absolute;inset:0;overflow:hidden;z-index:0}
 .rv-line{position:absolute;left:0;display:flex;white-space:nowrap;font-family:var(--head);font-size:clamp(54px,15vw,150px);line-height:1;color:transparent;-webkit-text-stroke:1px var(--rcol);opacity:.2;animation:marq linear infinite}
 #rv-glow{position:absolute;left:50%;top:44%;width:95vmin;height:95vmin;translate:-50% -50%;border-radius:50%;opacity:0;background:radial-gradient(circle,var(--rcol,#fff) 0%,transparent 60%);filter:blur(20px);transition:opacity 1.2s;z-index:1}
@@ -260,7 +262,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
     </div>
     <div class="lb-size" id="lbSize" style="display:none"></div>
     <div class="lb-row2">
-      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.1 (Beta)</span>
+      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.0</span>
       <div class="lb-progress"><i id="lbFill"></i></div>
     </div>
     <div id="sound-hint">ТАПНИТЕ, ЧТОБЫ ВКЛЮЧИТЬ МУЗЫКУ</div>
@@ -285,7 +287,6 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 <div id="s-intro">
   <video id="intro-video" playsinline webkit-playsinline preload="auto"></video>
   <div id="intro-tap">ТАП · ЗАПУСТИТЬ ЗАСТАВКУ</div>
-  <button id="intro-skip">ПРОПУСТИТЬ ▸</button>
 </div>
 
 <!-- ============ ПРИЛОЖЕНИЕ ============ -->
@@ -332,6 +333,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
         <div class="avatar"><img id="avatar" alt=""></div>
         <div class="pname" id="pname"></div>
         <div class="puser" id="puser"></div>
+        <div class="pid" id="pid"></div>
       </div>
     </div>
   </section>
@@ -530,6 +532,7 @@ async function loadProfile() {
     PROFILE.name = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'HW';
     PROFILE.username = u.username || null;
     PROFILE.photo = u.photo_url || null;
+    PROFILE.tgId = u.id;
   }
   PROFILE.name = PROFILE.name || 'Гость';
 }
@@ -588,9 +591,34 @@ function animateTo(target, ms) {
 }
 
 /* ---------- Заставка ---------- */
+/* Интро: фоновая предзагрузка (во время humancheck), воспроизведение без пропуска */
+let introCb = null;
+let introP = null;
+function prefetchIntro() {
+  if (introP) return introP;
+  introP = (async () => {
+    if (urlCache.intro) return urlCache.intro;
+    const rec = await kvGet('res:intro').catch(() => null);
+    if (rec && rec.blob && rec.blob.size > 0) {
+      urlCache.intro = URL.createObjectURL(new Blob([rec.blob], { type: 'video/mp4' }));
+      return urlCache.intro;
+    }
+    try {
+      const blob = await fetchWithProgress(RES.intro.url, n => introCb && introCb(n));
+      if (!blob.size) return null;
+      kvSet('res:intro', { blob, size: blob.size, savedAt: Date.now() }).catch(() => {});
+      urlCache.intro = URL.createObjectURL(new Blob([blob], { type: 'video/mp4' }));
+      return urlCache.intro;
+    } catch (e) {
+      introP = null;   // повторим при следующей попытке
+      return null;
+    }
+  })();
+  return introP;
+}
 function playIntro(src) {
   return new Promise(resolve => {
-    const ov = $('#s-intro'), v = $('#intro-video'), skip = $('#intro-skip'), tap = $('#intro-tap');
+    const ov = $('#s-intro'), v = $('#intro-video'), tap = $('#intro-tap');
     let done = false;
     const finish = () => {
       if (done) return;
@@ -602,13 +630,13 @@ function playIntro(src) {
       resolve();
     };
     ov.classList.add('on');
+    v.muted = false;
     v.src = src;
     v.onended = finish;
     v.onerror = finish;
-    skip.onclick = finish;
     tap.onclick = () => { tap.classList.remove('on'); v.play().catch(finish); };
-    setTimeout(() => skip.classList.add('on'), 1200);
-    v.play().catch(() => tap.classList.add('on'));
+    const p = v.play();
+    if (p) p.catch(() => tap.classList.add('on'));
   });
 }
 
@@ -795,6 +823,7 @@ function renderSettings() {
   $('#avatar').src = PROFILE.photo || avatarSVG(ch);
   $('#pname').textContent = PROFILE.name || 'Гость';
   $('#puser').textContent = PROFILE.username ? '@' + PROFILE.username : 'Username не задан';
+  $('#pid').textContent = 'Telegram ID: ' + (PROFILE.tgId || 'не определён');
 }
 
 /* ---------- Открытие карточки ---------- */
@@ -893,8 +922,7 @@ const RevealFX = (() => {
     for (let i = 0; i < N; i++) {
       const k = i * 3;
       if (burstAge >= 0) {
-        off[k] += vel[k]; off[k + 1] += vel[k + 1]; off[k + 2] += vel[k + 2];
-        vel[k] *= .965; vel[k + 1] *= .965; vel[k + 2] *= .965;
+        off[k] *= .975; off[k + 1] *= .975; off[k + 2] *= .975;   // плавный переход к новым позициям
       }
       const wob = Math.sin(t * 2 + ph[i]) * .035;
       const wobY = Math.cos(t * 1.7 + ph[i]) * .035;
@@ -904,10 +932,7 @@ const RevealFX = (() => {
     }
     if (burstAge >= 0) {
       burstAge += .016;
-      if (burstAge > 1.6) {                       // после взрыва частицы возвращаются к контуру
-        for (let i = 0; i < N * 3; i++) off[i] *= .95;
-      }
-      mat.opacity = Math.max(.35, 1 - burstAge / 4);
+      mat.opacity = .9;
     }
     geo.attributes.position.needsUpdate = true;
     if (shockT > 0) {
@@ -927,18 +952,23 @@ const RevealFX = (() => {
     burstAge = -1; shockT = 0;
     if (!raf) frame();
   }
-  /* взрыв после переворота: частицы разлетаются от контура, цвет редкости */
+  /* взрыв после переворота: частицы разлетаются по всему фону в цвете редкости */
   function burst(fx) {
     if (!init()) return;
     setColors(fx);
+    const h = 2 * 9 * Math.tan(27.5 * Math.PI / 180);
+    const w = h * camera.aspect;
     for (let i = 0; i < N; i++) {
       const k = i * 3;
-      const dx = base[k] - cx, dy = base[k + 1] - cy;
-      const len = Math.hypot(dx, dy) || 1;
-      const sp = .02 + Math.random() * .05;
-      vel[k] = dx / len * sp + (Math.random() - .5) * .01;
-      vel[k + 1] = dy / len * sp + (Math.random() - .5) * .01;
-      vel[k + 2] = (Math.random() - .5) * .01;
+      const nx = (Math.random() - .5) * w * 1.05;
+      const ny = (Math.random() - .5) * h * 1.05;
+      const nz = (Math.random() - .5) * 1.2;
+      // сохраняем текущую позицию, и частица плавно уходит на новое место по экрану
+      off[k] = pos[k] - nx;
+      off[k + 1] = pos[k + 1] - ny;
+      off[k + 2] = pos[k + 2] - nz;
+      base[k] = nx; base[k + 1] = ny; base[k + 2] = nz;
+      vel[k] = vel[k + 1] = vel[k + 2] = 0;
     }
     burstAge = 0;
     shockT = .0001;
@@ -1102,6 +1132,9 @@ function closeReveal() {
   if (busy) return;
   if (rv.card) rv.card.querySelector('.inner').getAnimations().forEach(a => a.cancel());
   rv.el.classList.remove('on');
+  rv.exit.classList.remove('show');
+  rv.top.classList.remove('show');
+  rv.info.classList.remove('show');
   RevealFX.stop();
   rv.stage.innerHTML = '';
   rv.card = null;
@@ -1200,18 +1233,29 @@ async function phaseFinal() {
 
 /* ---------- Последовательность запуска ---------- */
 async function afterHumanCheck() {
-  await phaseCheck();
-
-  const introUrl = urlOf('intro');
-  if (introUrl) {
-    // Заставка: загрузчик скрыт, музыка на паузе
-    LD.loader.classList.add('done');
-    stopBgm();
-    await sleep(600);
-    await playIntro(introUrl);
+  // 1. Интро (сразу после humancheck, пока жест пользователя ещё активен)
+  let introUrl = urlCache.intro || null;
+  if (!introUrl) {
+    // Интро ещё не скачано: показываем прогресс загрузчика
     LD.loader.classList.remove('done');
+    paint(0, '');
+    setMsg('// Обращение к базе данных HyperWorld');
+    LD.size.style.display = 'block';
+    introCb = n => paint(Math.min(100, n / RES.intro.size * 100), `${fmtSize(n)} / ${fmtSize(RES.intro.size)}`);
+    introUrl = await prefetchIntro();
+    introCb = null;
+    LD.size.style.display = 'none';
+  }
+  if (introUrl) {
+    LD.loader.classList.add('done');
+    await playIntro(introUrl);
   }
 
+  // 2. Загрузчик: проверка, докачка недостающего
+  LD.loader.classList.remove('done');
+  await phaseCheck();
+
+  // 3. Финальная проверка и загрузка игры → меню
   await phaseFinal();
 
   ambient($('#fx'));
@@ -1221,6 +1265,7 @@ async function afterHumanCheck() {
 }
 
 (async function start() {
+  prefetchIntro();
   let started = false;
   const begin = () => { if (!started) { started = true; afterHumanCheck(); } };
   try {

@@ -533,6 +533,58 @@ async function resKeys() {
   } catch (e) { return []; }
 }
 
+/* ---------- Проверка изменений файлов на GitHub ---------- */
+const REMOTE_SHA = {};   // id ресурса → git-SHA текущей версии файла в репозитории
+function parseGh(url) {
+  const m = url.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/main\/(.+)$/);
+  return { owner: m[1], repo: m[2], path: decodeURIComponent(m[3]) };
+}
+/* Один запрос на репозиторий: дерево файлов с их SHA (быстро и без скачивания самих файлов) */
+async function fetchRemoteShas() {
+  const repos = {};
+  for (const r of RESOURCES) {
+    const g = parseGh(r.url);
+    const key = g.owner + '/' + g.repo;
+    (repos[key] = repos[key] || { owner: g.owner, repo: g.repo, items: [] }).items.push({ id: r.id, path: g.path });
+  }
+  await Promise.all(Object.values(repos).map(async rp => {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 5000);
+    try {
+      const res = await fetch(`https://api.github.com/repos/${rp.owner}/${rp.repo}/git/trees/main`,
+        { cache: 'no-store', signal: ctl.signal, headers: { Accept: 'application/vnd.github+json' } });
+      if (!res.ok) return;                  // лимит или сеть: используем кеш без проверки
+      const j = await res.json();
+      const map = {};
+      for (const e of j.tree || []) map[e.path] = e.sha;
+      for (const it of rp.items) if (map[it.path]) REMOTE_SHA[it.id] = map[it.path];
+    } catch (e) {
+    } finally { clearTimeout(t); }
+  }));
+}
+/* git-SHA содержимого (как считает GitHub: sha1("blob <размер>\0" + байты)) */
+async function gitBlobSha(blob) {
+  const head = new TextEncoder().encode(`blob ${blob.size}\0`);
+  const body = new Uint8Array(await blob.arrayBuffer());
+  const all = new Uint8Array(head.length + body.length);
+  all.set(head, 0);
+  all.set(body, head.length);
+  const d = await crypto.subtle.digest('SHA-1', all);
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+/* Ресурсы, которых нет в кеше или которые изменены на GitHub */
+async function findMissing() {
+  const recs = {};
+  for (const r of RESOURCES) recs[r.id] = await kvGet('res:' + r.id).catch(() => null);
+  await fetchRemoteShas();
+  return RESOURCES.filter(r => {
+    const rec = recs[r.id];
+    if (!rec || !rec.blob || !(rec.blob.size > 0)) return true;
+    const remote = REMOTE_SHA[r.id];
+    return !!remote && rec.sha !== remote;
+  });
+}
+
 /* ---------- Скачивание с прогрессом ---------- */
 const urlCache = {};
 function urlOf(id) { return urlCache[id] || null; }
@@ -703,7 +755,7 @@ function prefetchIntro() {
     try {
       const blob = await fetchWithProgress(RES.intro.url, n => introCb && introCb(n));
       if (!blob.size) return null;
-      kvSet('res:intro', { blob, size: blob.size, savedAt: Date.now() }).catch(() => {});
+      gitBlobSha(blob).then(sha => kvSet('res:intro', { blob, size: blob.size, sha, savedAt: Date.now() })).catch(() => {});
       urlCache.intro = URL.createObjectURL(new Blob([blob], { type: 'video/mp4' }));
       return urlCache.intro;
     } catch (e) {
@@ -1299,7 +1351,8 @@ async function downloadMissing(list, base) {
         paint(base + (100 - base) * dl / total, `${fmtSize(dl)} / ${fmtSize(total)}`);
       });
       if (!blob.size) throw new Error('пустой файл');
-      await kvSet('res:' + r.id, { blob, size: blob.size, savedAt: Date.now() });
+      const sha = await gitBlobSha(blob).catch(() => null);
+      await kvSet('res:' + r.id, { blob, size: blob.size, sha, savedAt: Date.now() });
       if (urlCache[r.id]) URL.revokeObjectURL(urlCache[r.id]);
       urlCache[r.id] = URL.createObjectURL(new Blob([blob], { type: r.type }));
       done += blob.size;
@@ -1339,7 +1392,7 @@ async function phaseCheck() {
   setMsg('// Проверка ресурсов игры');
   await loadCachedUrls();
   await animateTo(30, 500);
-  const missing = RESOURCES.filter(r => !keys.includes(r.id));
+  const missing = await findMissing();
   if (missing.length) {
     await askUpdate(missing.reduce((s, r) => s + r.size, 0));
     await downloadMissing(missing, 30);
@@ -1354,7 +1407,7 @@ async function phaseFinal() {
   if (bgm && bgm.src) bgm.play().catch(() => {});
   await animateTo(40, 700);
   const keys = await resKeys();
-  const missing = RESOURCES.filter(r => !keys.includes(r.id));
+  const missing = await findMissing();
   if (missing.length) await downloadMissing(missing, 40);
   await loadCachedUrls();
 

@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>HyperWorld</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Exo+2:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --ink:#07090c; --ink2:#e9eef2; --dim:#6d7b86;
+  --acc:#ffe14a; --cy:#38e8ff; --vi:#a78bfa;
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --ui:'Exo 2','Segoe UI',sans-serif;
+  --head:'Russo One','Exo 2',sans-serif;
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-family:var(--ui);user-select:none;-webkit-user-select:none;touch-action:manipulation;overscroll-behavior:none;-webkit-touch-callout:none}
+#app{position:fixed;inset:0;overflow:hidden;background:radial-gradient(120% 90% at 68% 12%,#12202a 0%,#07090c 62%)}
+.bg-grid{position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(rgba(56,232,255,.055) 1px,transparent 1px) 0 0/52px 52px,
+             linear-gradient(90deg,rgba(56,232,255,.055) 1px,transparent 1px) 0 0/52px 52px}
+#fx{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+
+.screen{position:absolute;inset:0;z-index:3;opacity:0;pointer-events:none;transform:scale(1.02);transition:opacity .5s ease,transform .6s cubic-bezier(.2,.7,.2,1)}
+.screen.on{opacity:1;pointer-events:auto;transform:none}
+
+@keyframes shimmer{from{background-position:0% 0}to{background-position:100% 0}}
+@keyframes blink{50%{opacity:0}}
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes float3d{50%{transform:translateY(-3px) rotateX(10deg)}}
+@keyframes sheen{0%,55%{transform:translateX(-110%)}100%{transform:translateX(110%)}}
+@keyframes marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes floatY{0%,100%{translate:0 0}50%{translate:0 -10px}}
+@keyframes sweep{0%{transform:translateX(-120%)}60%,100%{transform:translateX(120%)}}
+@keyframes qpulse{50%{opacity:.5}}
+@keyframes iconPop{from{transform:scale(.6) rotate(-20deg)}}
+@keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+/* ===================== ЗАГРУЗЧИК (как в KillerCasino) ===================== */
+#loader{position:fixed;inset:0;z-index:200;background:#ffffff;overflow:hidden;transition:opacity .6s,visibility .6s}
+#loader.done{opacity:0;visibility:hidden}
+#loader .lgrid{position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(56,232,255,.16) 1px,transparent 1px),linear-gradient(90deg,rgba(56,232,255,.16) 1px,transparent 1px);
+  background-size:42px 42px}
+.lhero{position:absolute;left:0;right:0;top:40%;translate:0 -50%;text-align:center;padding:0 6vw;z-index:1}
+.lhero h1{font-family:var(--head);font-size:clamp(46px,14vw,116px);line-height:.9;color:var(--ink)}
+.lhero h1 span{display:block;color:transparent;-webkit-text-stroke:2px var(--ink)}
+.lhero .sub{margin-top:16px;font-family:var(--mono);font-size:12px;letter-spacing:.3em;color:#666}
+.lring{position:absolute;left:50%;top:40%;width:min(72vw,300px);height:min(72vw,300px);translate:-50% -50%;border-radius:50%;
+  border:1px dashed rgba(56,232,255,.6);animation:spin 24s linear infinite}
+.lring::after{content:"";position:absolute;inset:16px;border-radius:50%;border:1px solid rgba(255,190,40,.7);animation:spin 14s linear infinite reverse}
+#loader-overlay{position:absolute;left:0;right:0;bottom:0;z-index:4;
+  background:linear-gradient(180deg,transparent,rgba(0,0,0,.88) 40%);
+  padding:14px 20px calc(18px + var(--safe-b));display:flex;flex-direction:column;gap:9px;color:#fff}
+.lb-row{display:flex;align-items:center;gap:16px}
+.lb-text{flex:1;text-align:center;font-size:14px;text-shadow:0 2px 6px rgba(0,0,0,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lbMsg::after{content:'...';animation:dots 1.2s steps(4) infinite}
+#lbPct{color:#bbb;margin-left:6px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.csspin{width:18px;height:18px;border-radius:50%;border:3px solid #555;border-top-color:#fff;animation:rot .9s linear infinite;flex:none}
+.lb-size{text-align:center;color:#ddd;font-size:12px;font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.lb-row2{display:flex;align-items:center;gap:14px}
+.lb-ver{color:#aaa;font-size:10px;letter-spacing:.06em;white-space:nowrap;font-family:var(--mono)}
+.lb-progress{flex:1;height:3px;position:relative;background:repeating-linear-gradient(90deg,#3a3a3a 0 6px,transparent 6px 10px);border-radius:2px}
+.lb-progress i{position:absolute;inset:0;background:linear-gradient(90deg,#fff,var(--cy));transform-origin:left;transform:scaleX(0);transition:transform .15s;border-radius:2px}
+#sound-hint{text-align:center;font-family:var(--mono);font-size:11px;color:var(--acc);letter-spacing:.14em;opacity:0;min-height:14px}
+#sound-hint.on{opacity:1;animation:blink 1s steps(2) infinite}
+
+/* ===================== ЗАСТАВКА ===================== */
+#s-intro{position:fixed;inset:0;z-index:40;background:#000;display:none}
+#s-intro.on{display:block}
+#intro-video{width:100%;height:100%;object-fit:cover;background:#000;display:block}
+#intro-tap{position:absolute;inset:0;display:none;place-items:center;background:rgba(0,0,0,.7);z-index:3;font-family:var(--head);color:var(--acc);letter-spacing:.2em;font-size:18px;cursor:pointer}
+#intro-tap.on{display:grid}
+#intro-skip{position:absolute;right:16px;bottom:calc(16px + var(--safe-b));z-index:2;font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:#fff;background:rgba(0,0,0,.45);border:1px solid rgba(56,232,255,.42);padding:9px 14px;opacity:0;transition:opacity .4s;cursor:pointer}
+#intro-skip.on{opacity:1}
+
+/* ===================== МЕНЮ ===================== */
+#s-menu{display:flex;flex-direction:column;align-items:center;padding:calc(5vh + var(--safe-t)) 18px calc(116px + var(--safe-b))}
+.m-head{text-align:center;flex:none}
+.m-tag{font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--dim)}
+.m-title{font-family:var(--head);font-size:clamp(40px,12vw,76px);line-height:1;margin-top:8px;letter-spacing:.03em;
+  background:linear-gradient(90deg,#fff,var(--cy) 40%,var(--acc) 70%,#fff);background-size:250% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:shimmer 6s linear infinite;
+  filter:drop-shadow(0 0 18px rgba(56,232,255,.35))}
+.m-sub{font-size:13px;letter-spacing:.2em;color:var(--ink2);margin-top:6px;opacity:.8}
+.m-stats{display:flex;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;padding:6px 11px;border:1px solid rgba(56,232,255,.3);background:rgba(9,14,20,.6);color:#bfe6f5;border-radius:999px}
+.chip b{color:var(--acc);font-weight:700}
+.m-stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;width:100%}
+.m-stage .hwcard{height:min(44vh,360px);width:auto;aspect-ratio:2/3;animation:floatY 5s ease-in-out infinite}
+.m-hint{font-size:13px;color:var(--dim);letter-spacing:.03em;text-align:center}
+.bigbtn{flex:none;width:min(82vw,320px);height:68px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:0;overflow:hidden;
+  background:linear-gradient(135deg,#ffe14a,#ffb028);color:#07090c;font-family:var(--head);font-size:16px;letter-spacing:.12em;
+  clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);
+  box-shadow:0 0 40px rgba(255,225,74,.35),inset 0 2px 0 rgba(255,255,255,.6);transition:transform .2s,box-shadow .3s;position:relative}
+.bigbtn::before{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.75) 50%,transparent 65%);transform:translateX(-120%);animation:sweep 2.8s ease-in-out infinite;pointer-events:none}
+.bigbtn:hover{box-shadow:0 0 60px rgba(56,232,255,.5);transform:translateY(-2px)}
+.bigbtn:active{transform:scale(.97)}
+.bigbtn .lbl{position:relative;z-index:1;display:flex;align-items:center;gap:10px}
+.bigbtn svg{width:20px;height:20px}
+
+/* Жидкое стекло — навигация */
+#nav{position:absolute;left:50%;bottom:calc(14px + var(--safe-b));translate:-50% 0;z-index:20;display:flex;gap:8px;padding:8px;border-radius:26px;
+  background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.04) 45%,rgba(255,255,255,.1));
+  backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:0 14px 40px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.08);transition:opacity .4s,transform .4s}
+#nav.hide{opacity:0;pointer-events:none;transform:translate(-50%,30px)}
+.nb{position:relative;width:min(27vw,104px);height:60px;border-radius:18px;cursor:pointer;overflow:hidden;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#cfe9f5;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.04em;line-height:1.15;text-align:center;transition:background .3s,border-color .3s,box-shadow .3s,color .3s}
+.nb::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 80% at 30% 0%,rgba(255,255,255,.35),transparent 60%);opacity:.7}
+.nb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;position:relative;z-index:1;transition:transform .35s}
+.nb:hover svg{transform:rotate(-8deg) scale(1.08)}
+.nb span{position:relative;z-index:1}
+.nb.on{background:linear-gradient(160deg,rgba(56,232,255,.35),rgba(56,232,255,.08));border-color:rgba(56,232,255,.6);color:#fff;box-shadow:0 0 22px rgba(56,232,255,.35),inset 0 1px 0 rgba(255,255,255,.5)}
+.nb.on svg{animation:iconPop .5s cubic-bezier(.3,1.6,.5,1)}
+
+/* ===================== КАРТОЧКА ===================== */
+.stage3d{perspective:1100px}
+.hwcard{position:relative;width:min(70vw,260px);aspect-ratio:2/3;transform-style:preserve-3d;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .18s ease-out}
+.hwcard .inner{position:absolute;inset:0;transform-style:preserve-3d}
+.hwcard.open .inner{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background:#05080c;border:2px solid var(--rc,#fff);box-shadow:0 0 40px var(--glow,rgba(255,255,255,.3)),inset 0 0 40px rgba(0,0,0,.6);border-radius:6px}
+.face::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.18) 50%,transparent 60%);transform:translateX(-110%);animation:sheen 3.8s ease-in-out infinite}
+.face.front{transform:rotateY(180deg)}
+.face.back{display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#0d1a22,#05080c 70%)}
+.face.back::after{content:"";position:absolute;inset:14px;border:1px solid rgba(56,232,255,.2)}
+.face.back .q{font-family:var(--head);font-size:clamp(90px,28vw,130px);color:transparent;-webkit-text-stroke:2px var(--cy);text-shadow:0 0 30px rgba(56,232,255,.5);animation:qpulse 2s ease-in-out infinite}
+.face.front img{width:100%;height:100%;object-fit:cover;display:block}
+.hwcard.crystal .face{border:2px solid transparent;background:linear-gradient(#05080c,#05080c) padding-box,linear-gradient(120deg,#eaffff,#7fd8ff,#c79bff,#fff,#7fd8ff) border-box;box-shadow:0 0 36px rgba(127,216,255,.5),0 0 70px rgba(199,155,255,.3)}
+
+.rar3d{position:relative;display:inline-block;isolation:isolate;font-family:var(--head);font-size:clamp(22px,6.4vw,32px);letter-spacing:.06em;line-height:1.1;animation:float3d 4s ease-in-out infinite;transform-style:preserve-3d;white-space:nowrap}
+.rar3d::before{content:attr(data-text);position:absolute;left:0;top:0;color:rgba(0,0,0,.85);transform:translate(.06em,.1em);z-index:-1;filter:blur(.4px)}
+.rar3d span{position:relative;background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shimmer 3.4s linear infinite}
+
+/* ===================== СПИСОК / НАСТРОЙКИ ===================== */
+#s-list .wrap,#s-settings .wrap{position:absolute;inset:0;overflow-y:auto;padding:calc(5vh + var(--safe-t)) 16px 130px}
+.lst-title{font-family:var(--head);font-size:24px;letter-spacing:.14em;text-align:center;color:var(--ink2)}
+.lst-sub{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--dim);text-align:center;margin:6px 0 24px}
+.lst-grid{display:flex;flex-direction:column;align-items:center;gap:28px}
+.lcard{display:flex;flex-direction:column;align-items:center;gap:10px}
+.lcard .hwcard{width:min(70vw,240px)}
+.lcard .cname{font-family:var(--head);font-size:15px;letter-spacing:.1em}
+.lcard .chance{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.08em}
+.lcard .lock{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--dim)}
+.prof{width:min(84vw,320px);margin:12vh auto 0;padding:30px 20px;text-align:center;background:rgba(9,14,20,.72);border:1px solid rgba(56,232,255,.42);backdrop-filter:blur(8px);clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px))}
+.avatar{position:relative;width:140px;height:140px;margin:0 auto 22px;padding:4px;border-radius:50%;background:#07090c;isolation:isolate}
+.avatar::before{content:"";position:absolute;inset:-3px;border-radius:50%;z-index:-1;background:conic-gradient(from 0deg,var(--cy),var(--acc),#a78bfa,#fff,var(--cy));animation:spin 6s linear infinite}
+.avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;background:#07090c}
+.pl{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--dim)}
+.pid{font-family:var(--mono);font-size:15px;letter-spacing:.12em;color:var(--cy);margin-top:10px;word-break:break-all}
+
+/* ===================== ОТКРЫТИЕ КАРТОЧКИ ===================== */
+#s-reveal{position:fixed;inset:0;z-index:30;background:#000;opacity:0;pointer-events:none;transition:opacity .5s}
+#s-reveal.on{opacity:1;pointer-events:auto}
+#rv-bg{position:absolute;inset:0;overflow:hidden;z-index:0}
+.rv-line{position:absolute;left:0;display:flex;white-space:nowrap;font-family:var(--head);font-size:clamp(54px,15vw,150px);line-height:1;color:transparent;-webkit-text-stroke:1px var(--rcol);opacity:.2;animation:marq linear infinite}
+#rv-glow{position:absolute;left:50%;top:44%;width:95vmin;height:95vmin;translate:-50% -50%;border-radius:50%;opacity:0;background:radial-gradient(circle,var(--rcol,#fff) 0%,transparent 60%);filter:blur(20px);transition:opacity 1.2s;z-index:1}
+#rv-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+#rv-wrap{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(6vh + var(--safe-t)) 18px calc(5vh + var(--safe-b))}
+#rv-top{font-family:var(--head);font-size:clamp(17px,4.6vw,26px);letter-spacing:.12em;text-transform:uppercase;text-align:center;opacity:0;transform:translateY(-16px);transition:opacity .8s,transform .8s;text-shadow:0 0 18px rgba(255,255,255,.4)}
+#rv-top.show{opacity:1;transform:none}
+#rv-stage{height:min(50vh,420px);width:100%;display:flex;align-items:center;justify-content:center;perspective:1100px}
+#rv-stage .hwcard{height:100%;width:auto;aspect-ratio:2/3}
+#rv-info{text-align:center;opacity:0;transform:translateY(16px);transition:opacity .8s .15s,transform .8s .15s;display:flex;flex-direction:column;align-items:center;gap:6px}
+#rv-info.show{opacity:1;transform:none}
+.rv-name{font-family:var(--head);font-size:clamp(18px,5vw,24px);letter-spacing:.12em}
+.rv-label{font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--dim)}
+.btn{font-family:var(--head);font-size:15px;letter-spacing:.14em;color:var(--acc);cursor:pointer;width:min(76vw,300px);height:56px;background:rgba(255,225,74,.08);border:1px solid var(--acc);clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);transition:.2s}
+.btn:hover{background:var(--acc);color:#07090c;box-shadow:0 0 30px rgba(255,225,74,.35)}
+#rv-exit{opacity:0;transition:opacity .6s .4s}
+#rv-exit.show{opacity:1}
+
+/* ===== ИНДЕКС: плитки как в коллекции ===== */
+#list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%;max-width:560px;margin:0 auto}
+@media(min-width:700px){#list{grid-template-columns:repeat(4,1fr)}}
+.tile{position:relative;background:#0a1016;border:1px solid rgba(255,255,255,.1);border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.tile-head{display:flex;align-items:center;min-height:38px;padding:8px 10px;font-family:var(--head);font-size:13px;letter-spacing:.06em;color:#fff;
+  background:linear-gradient(90deg,var(--rs),transparent 92%);border-bottom:2px solid var(--rc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile-body{position:relative;aspect-ratio:2/3;background:#05080c;overflow:hidden}
+.tile-body img{width:100%;height:100%;object-fit:cover;display:block}
+.tile-body.locked{background:repeating-linear-gradient(45deg,#080c11 0 10px,#0b1016 10px 20px)}
+.tile-body.locked::before{content:"";position:absolute;left:50%;top:50%;width:28px;height:28px;translate:-50% -50%;border:2px solid rgba(255,255,255,.16);border-radius:6px}
+.tile-foot{padding:9px 8px;display:flex;justify-content:center;background:linear-gradient(0deg,var(--rs),transparent 100%)}
+.tile-foot .rar3d{font-size:clamp(13px,3.6vw,16px)}
+
+/* ===== ЗВЁЗДЫ ===== */
+.stars{display:flex;gap:3px;justify-content:center;align-items:center}
+.stars svg{width:14px;height:14px;fill:#1a232c;stroke:#33414d;stroke-width:.8}
+.stars svg.on{fill:var(--rc);stroke:#fff;stroke-width:.5;filter:drop-shadow(0 0 4px var(--rc))}
+.stars svg.pop{animation:starPop .8s cubic-bezier(.3,1.6,.5,1)}
+@keyframes starPop{0%{transform:scale(0) rotate(-200deg)}70%{transform:scale(1.4) rotate(10deg)}100%{transform:scale(1) rotate(0)}}
+.tile-foot{flex-direction:column;align-items:center;gap:6px}
+
+/* ===== БЕЙДЖ ПОВТОРКИ ===== */
+#s-badge{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#s-badge.on{display:flex}
+.bdg-wrap{perspective:900px}
+.bdg{position:relative;width:min(82vw,310px);padding:22px 20px 18px;text-align:center;overflow:hidden;
+  background:linear-gradient(160deg,rgba(14,22,30,.97),rgba(6,9,13,.97));border:1px solid var(--rc);
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px);
+  box-shadow:0 0 60px var(--glow),inset 0 0 40px rgba(255,255,255,.04);transform-style:preserve-3d}
+.bdg::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.14) 50%,transparent 60%);transform:translateX(-110%);animation:sheen 3.2s ease-in-out infinite}
+.bdg-top{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.bdg-name{font-family:var(--head);font-size:20px;letter-spacing:.08em;color:#fff}
+.bdg-face{width:124px;height:124px;margin:14px auto 12px;border:2px solid var(--rc);box-shadow:0 0 26px var(--glow);background-color:#05080c;background-repeat:no-repeat;background-size:260% auto;background-position:50% 6%}
+.bdg-stars{min-height:22px}
+.bdg-stars .stars svg{width:20px;height:20px}
+.bdg-bar{position:relative;height:14px;margin:16px 0 10px;background:rgba(255,255,255,.14);border:1px solid var(--rc);box-shadow:inset 0 0 8px rgba(0,0,0,.6),0 0 12px var(--glow);overflow:hidden}
+.bdg-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,var(--rc),#fff,var(--rc));background-size:200% 100%;animation:barShine 1.6s linear infinite;box-shadow:0 0 18px var(--rc)}
+@keyframes barShine{from{background-position:0 0}to{background-position:200% 0}}
+.bdg-cnt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--dim)}
+.bdg-lvl{font-family:var(--head);font-size:17px;letter-spacing:.08em;color:var(--acc);margin-top:14px;opacity:0;text-shadow:0 0 16px rgba(255,225,74,.6)}
+.bdg-lvl.show{animation:lvlIn 1s ease forwards}
+@keyframes lvlIn{0%{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+.bdg-hint{margin-top:12px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:#55626d}
+
+/* ===== ОКНО ОБНОВЛЕНИЯ ===== */
+#upd{position:fixed;inset:0;z-index:210;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:20px}
+#upd.on{display:flex;animation:updIn .45s ease both}
+@keyframes updIn{from{opacity:0}to{opacity:1}}
+.upd-box{position:relative;width:min(86vw,340px);padding:26px 22px 22px;text-align:center;background:linear-gradient(160deg,rgba(14,22,30,.97),rgba(6,9,13,.97));border:1px solid rgba(56,232,255,.6);
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px);box-shadow:0 0 50px rgba(56,232,255,.25),inset 0 0 30px rgba(255,255,255,.03)}
+.upd-ic{width:72px;height:72px;margin:0 auto 14px;display:block;filter:drop-shadow(0 0 10px rgba(56,232,255,.6))}
+.upd-hex{stroke-dasharray:180;stroke-dashoffset:180;animation:hexDraw 1.4s ease forwards}
+@keyframes hexDraw{to{stroke-dashoffset:0}}
+.upd-arrow{animation:arrowBob 1.6s ease-in-out infinite}
+@keyframes arrowBob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+.upd-title{font-family:var(--head);font-size:19px;letter-spacing:.06em;color:#fff;margin-bottom:12px}
+.upd-text{font-size:13.5px;line-height:1.5;color:#b9c7d1;margin-bottom:20px}
+.upd-text b{color:var(--acc);font-family:var(--mono);font-weight:700}
+#upd .btn{margin:0 auto;width:100%}
+</style>
+</head>
+<body>
+
+<!-- ============ ЗАГРУЗЧИК ============ -->
+<div id="loader">
+  <div class="lgrid"></div>
+  <div class="lring"></div>
+  <div class="lhero">
+    <h1>HYPER<span>WORLD</span></h1>
+    <div class="sub">NEW ERA · CARD DUEL</div>
+  </div>
+  <div id="loader-overlay">
+    <div class="lb-row">
+      <div class="lb-text"><span id="lbMsg">// Инициализация игры</span><span id="lbPct">(00.00%)</span></div>
+      <div class="csspin"></div>
+    </div>
+    <div class="lb-size" id="lbSize" style="display:none"></div>
+    <div class="lb-row2">
+      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.0</span>
+      <div class="lb-progress"><i id="lbFill"></i></div>
+    </div>
+    <div id="sound-hint">ТАПНИТЕ, ЧТОБЫ ВКЛЮЧИТЬ МУЗЫКУ</div>
+  </div>
+</div>
+
+<!-- ============ ОКНО ОБНОВЛЕНИЯ ============ -->
+<div id="upd">
+  <div class="upd-box">
+    <svg class="upd-ic" viewBox="0 0 64 64" fill="none" stroke="#38e8ff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <polygon class="upd-hex" points="32,4 56,18 56,46 32,60 8,46 8,18"/>
+      <path class="upd-arrow" d="M32 18v22M23 31l9 9 9-9"/>
+      <path d="M22 48h20"/>
+    </svg>
+    <div class="upd-title">Доступно обновление</div>
+    <div class="upd-text">Мы обнаружили, что у вас не хватает (<b id="updSize">0 B</b>) ресурсов. Обновите игру, чтобы дальше продолжить играть с новыми возможностями!</div>
+    <button class="btn" id="updBtn">ЗАГРУЗИТЬ</button>
+  </div>
+</div>
+
+<!-- ============ ЗАСТАВКА ============ -->
+<div id="s-intro">
+  <video id="intro-video" playsinline webkit-playsinline preload="auto"></video>
+  <div id="intro-tap">ТАП · ЗАПУСТИТЬ ЗАСТАВКУ</div>
+  <button id="intro-skip">ПРОПУСТИТЬ ▸</button>
+</div>
+
+<!-- ============ ПРИЛОЖЕНИЕ ============ -->
+<div id="app">
+  <div class="bg-grid"></div>
+  <canvas id="fx"></canvas>
+
+  <!-- Меню -->
+  <section id="s-menu" class="screen">
+    <div class="m-head">
+      <div class="m-tag">SYNTEXHYPERSOFT · NEW ERA</div>
+      <h2 class="m-title">HyperWorld</h2>
+      <div class="m-sub">Карточные бойцы</div>
+      <div class="m-stats">
+        <span class="chip">КОЛЛЕКЦИЯ <b id="st-col">0/2</b></span>
+        <span class="chip">ШАНС РЕДКОЙ <b>11.88%</b></span>
+      </div>
+    </div>
+    <div class="m-stage stage3d">
+      <div class="hwcard" id="idle-card"><div class="inner"><div class="face back"><div class="q">?</div></div></div></div>
+      <div class="m-hint">Откройте карточку — выпадет новый боец</div>
+    </div>
+    <button class="bigbtn" id="open-btn">
+      <span class="lbl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+        ОТКРЫТЬ КАРТОЧКУ
+      </span>
+    </button>
+  </section>
+
+  <!-- Список -->
+  <section id="s-list" class="screen">
+    <div class="wrap">
+      <div class="lst-title">КОЛЛЕКЦИЯ</div>
+      <div class="lst-sub">От обычных к легендарным</div>
+      <div class="lst-grid" id="list"></div>
+    </div>
+  </section>
+
+  <!-- Настройки -->
+  <section id="s-settings" class="screen">
+    <div class="wrap">
+      <div class="prof">
+        <div class="avatar"><img id="avatar" alt=""></div>
+        <div class="pl">ID ПРОФИЛЯ</div>
+        <div class="pid" id="pid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Навигация -->
+  <nav id="nav" class="hide">
+    <button class="nb on" data-go="menu">
+      <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+      <span>Меню</span>
+    </button>
+    <button class="nb" data-go="list">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="16" rx="2"/><path d="M7 3h11a2 2 0 0 1 2 2v13"/></svg>
+      <span>Список карточек</span>
+    </button>
+    <button class="nb" data-go="settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      <span>Настройки</span>
+    </button>
+  </nav>
+
+  <!-- Открытие карточки -->
+  <div id="s-reveal">
+    <div id="rv-bg"></div>
+    <div id="rv-glow"></div>
+    <canvas id="rv-canvas"></canvas>
+    <div id="rv-wrap">
+      <div id="rv-top"></div>
+      <div id="rv-stage"></div>
+      <div id="rv-info">
+        <div class="rv-name" id="rv-name"></div>
+        <div class="rv-label">РЕДКОСТЬ:</div>
+        <div id="rv-rar"></div>
+        <div id="rv-stars"></div>
+      </div>
+      <button class="btn" id="rv-exit">ВЫЙТИ В МЕНЮ</button>
+    </div>
+  </div>
+</div>
+
+<div id="s-badge">
+  <div class="bdg-wrap">
+    <div class="bdg" id="bdg">
+      <div class="bdg-top"><div class="bdg-name" id="bdgName"></div><div id="bdgRar"></div></div>
+      <div class="bdg-face" id="bdgFace"></div>
+      <div class="bdg-stars" id="bdgStars"></div>
+      <div class="bdg-bar"><i id="bdgFill"></i></div>
+      <div class="bdg-cnt" id="bdgCnt"></div>
+      <div class="bdg-lvl" id="bdgLvl">Новый уровень карточки!</div>
+      <div class="bdg-hint">нажмите, чтобы продолжить</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   HYPERWORLD — Карточные бойцы (Telegram Mini App)
+   humancheck.js → загрузчик (логика как в KillerCasino) → заставка → меню
+   Все github.com ссылки автоматически переводятся в raw.githubusercontent.com
+   ========================================================================= */
+
+function toRaw(url) {
+  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/(?:blob|raw)\/(.+)$/);
+  if (m) return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`;
+  return url;
+}
+
+const tg = window.Telegram && window.Telegram.WebApp;
+try { tg && tg.ready(); tg && tg.expand(); tg && tg.setHeaderColor && tg.setHeaderColor('#ffffff'); } catch (e) {}
+
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const HUMANCHECK_URL = toRaw('https://github.com/SyntexHyperSoft/SyntexHyperSoft-Database/blob/main/humancheck.js');
+const NE = 'https://github.com/SyntexHyperSoft/HyperWorld---New-Era/blob/main/';
+
+/* Список ресурсов (как RESOURCE_LIST в KillerCasino): id, url, тип, размер */
+const RESOURCES = [
+  { id: 'music',   url: toRaw(NE + 'The%20Unblinking%20Lens.mp3'), type: 'audio/mpeg', size: 5140566,  label: 'Саундтрек' },
+  { id: 'intro',   url: toRaw('https://github.com/SyntexHyperSoft/SyntexHyperSoft-Database/blob/main/SyntaxHyperSoft.mp4'), type: 'video/mp4', size: 15434248, label: 'Заставка' },
+  { id: 'erilia',  url: toRaw(NE + '%D0%AD%D0%BB%D0%B8%D1%80%D0%B8%D1%8F.png'), type: 'image/png', size: 1355207, label: 'Элирия' },
+  { id: 'kurzhna', url: toRaw(NE + '%D0%9A%D1%83%D1%80%D1%8D%D0%BD%D0%B0.png'), type: 'image/png', size: 1546504, label: 'Курэна' },
+  { id: 'sfx_new',  url: toRaw(NE + '%D0%9D%D0%BE%D0%B2%D0%B0%D1%8F.mp3'), type: 'audio/mpeg', size: 38022, label: 'Новая карточка' },
+  { id: 'sfx_dupe', url: toRaw(NE + '%D0%9F%D0%BE%D0%B2%D1%82%D0%BE%D1%80%D0%BA%D0%B0.mp3'), type: 'audio/mpeg', size: 90925, label: 'Повторка' },
+  { id: 'sfx_star', url: toRaw(NE + 'StarUP.mp3'), type: 'audio/mpeg', size: 21523, label: 'Повышение звезды' }
+];
+const RES = Object.fromEntries(RESOURCES.map(r => [r.id, r]));
+
+/* Редкости (от менее редких к более редким) */
+const RARITY_ORDER = ['common', 'rare', 'superrare', 'epic', 'legendary', 'crystal'];
+const RARITY = {
+  common:    { name: 'Обычная',     rc: '#ffffff', glow: 'rgba(255,255,255,.35)', grad: 'linear-gradient(90deg,#ffffff,#8fa3b3,#ffffff)', fx: ['#ffffff', '#c9d6e0'] },
+  rare:      { name: 'Редкая',      rc: '#3dff7a', glow: 'rgba(61,255,122,.5)',   grad: 'linear-gradient(90deg,#b7ffcf,#3dff7a,#0fb74a,#b7ffcf)', fx: ['#3dff7a', '#b7ffcf'] },
+  superrare: { name: 'Суперредкая', rc: '#3a8bff', glow: 'rgba(58,139,255,.55)', grad: 'linear-gradient(90deg,#a9d4ff,#3a8bff,#1b4fd6,#a9d4ff)', fx: ['#3a8bff', '#a9d4ff'] },
+  epic:      { name: 'Эпическая',   rc: '#a25bff', glow: 'rgba(162,91,255,.55)', grad: 'linear-gradient(90deg,#e0b8ff,#a25bff,#5a1fd0,#e0b8ff)', fx: ['#a25bff', '#e0b8ff'] },
+  legendary: { name: 'Легендарная', rc: '#ffd84a', glow: 'rgba(255,216,74,.6)',  grad: 'linear-gradient(90deg,#fff3b0,#ffd84a,#c98b00,#fff3b0)', fx: ['#ffd84a', '#fff3b0'] },
+  crystal:   { name: 'Кристальная', rc: '#9fe7ff', glow: 'rgba(159,231,255,.55)', grad: 'linear-gradient(90deg,#eaffff,#7fd8ff,#c79bff,#ffffff,#7fd8ff,#eaffff)', fx: ['#eaffff', '#7fd8ff', '#c79bff'] }
+};
+
+/* Карточки. chance — шанс в %, сумма 100 */
+const CARDS = [
+  { id: 'erilia',  name: 'Элирия', rar: 'common',  chance: 88.12, res: 'erilia'  },
+  { id: 'kurzhna', name: 'Курэна', rar: 'crystal', chance: 11.88, res: 'kurzhna' }
+];
+
+/* ---------- IndexedDB (хранилище kv: ресурсы и профиль) ---------- */
+let dbP = null;
+function idb() {
+  if (!dbP) dbP = new Promise((res, rej) => {
+    if (!('indexedDB' in window)) return rej(new Error('IndexedDB недоступна'));
+    const r = indexedDB.open('hyperworld', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbP;
+}
+async function kvGet(k) {
+  const d = await idb();
+  return new Promise((res, rej) => {
+    const q = d.transaction('kv').objectStore('kv').get(k);
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => rej(q.error);
+  });
+}
+async function kvSet(k, v) {
+  const d = await idb();
+  return new Promise((res, rej) => {
+    const t = d.transaction('kv', 'readwrite');
+    t.objectStore('kv').put(v, k);
+    t.oncomplete = () => res(true);
+    t.onerror = () => rej(t.error);
+  });
+}
+async function resKeys() {
+  try {
+    const d = await idb();
+    return await new Promise(res => {
+      const q = d.transaction('kv').objectStore('kv').getAllKeys();
+      q.onsuccess = () => res((q.result || []).filter(k => String(k).startsWith('res:')).map(k => String(k).slice(4)));
+      q.onerror = () => res([]);
+    });
+  } catch (e) { return []; }
+}
+
+/* ---------- Скачивание с прогрессом ---------- */
+const urlCache = {};
+function urlOf(id) { return urlCache[id] || null; }
+async function fetchWithProgress(url, onChunk) {
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  if (!r.body) { const b = await r.blob(); onChunk(b.size); return b; }
+  const reader = r.body.getReader();
+  const chunks = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    onChunk(received);
+  }
+  return new Blob(chunks, { type: r.headers.get('content-type') || 'application/octet-stream' });
+}
+async function loadCachedUrls() {
+  for (const r of RESOURCES) {
+    const rec = await kvGet('res:' + r.id).catch(() => null);
+    if (rec && rec.blob && rec.blob.size > 0) {
+      if (!urlCache[r.id]) urlCache[r.id] = URL.createObjectURL(new Blob([rec.blob], { type: r.type }));
+    }
+  }
+}
+
+/* ---------- Профиль ---------- */
+let PROFILE = { owned: {}, id: 'HW-' + Math.random().toString(16).slice(2, 10).toUpperCase() };
+async function loadProfile() {
+  const saved = await kvGet('profile').catch(() => null);
+  if (saved) PROFILE = Object.assign(PROFILE, saved);
+  PROFILE.owned = PROFILE.owned || {};
+  const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  if (u) { PROFILE.id = 'TG-' + u.id; PROFILE.name = u.first_name || 'HW'; PROFILE.photo = u.photo_url || null; }
+}
+function saveProfile() { kvSet('profile', PROFILE).catch(() => {}); }
+
+/* ---------- Музыка: только во время загрузки ---------- */
+let bgm = null;
+function playBgm(src) {
+  if (!bgm) { bgm = new Audio(); bgm.loop = true; bgm.volume = 0.55; }
+  if (bgm.src !== src) bgm.src = src;
+  const p = bgm.play();
+  if (p) p.catch(() => {
+    $('#sound-hint').classList.add('on');
+    addEventListener('pointerdown', () => {
+      bgm.play().then(() => $('#sound-hint').classList.remove('on')).catch(() => {});
+    }, { once: true });
+  });
+}
+function playSfx(id) {
+  const src = urlOf(id);
+  if (!src) return;
+  const a = new Audio(src);
+  a.volume = 0.9;
+  a.play().catch(() => {});
+}
+function stopBgm() { if (bgm) bgm.pause(); }
+
+/* ---------- Загрузчик: прогресс и сообщения ---------- */
+const LD = { msg: $('#lbMsg'), pct: $('#lbPct'), size: $('#lbSize'), fill: $('#lbFill'), loader: $('#loader') };
+let curP = 0;
+function paint(p, sizeText) {
+  p = Math.max(0, Math.min(100, p));
+  curP = p;
+  LD.fill.style.transform = `scaleX(${p / 100})`;
+  LD.pct.textContent = `(${p.toFixed(2).padStart(5, '0')}%)`;
+  if (sizeText !== undefined) LD.size.textContent = sizeText;
+}
+function fmtSize(b) {
+  if (b < 1024) return b.toFixed(0) + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  if (b < 1073741824) return (b / 1048576).toFixed(2) + ' MB';
+  return (b / 1073741824).toFixed(2) + ' GB';
+}
+function setMsg(t) { LD.msg.textContent = t; }
+/* Плавная анимация прогресса на этапах (без сетевой работы) */
+function animateTo(target, ms) {
+  return new Promise(res => {
+    const from = curP, t0 = performance.now();
+    const step = now => {
+      const k = Math.min(1, (now - t0) / ms);
+      paint(from + (target - from) * k);
+      if (k < 1) requestAnimationFrame(step); else res();
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+/* ---------- Заставка ---------- */
+function playIntro(src) {
+  return new Promise(resolve => {
+    const ov = $('#s-intro'), v = $('#intro-video'), skip = $('#intro-skip'), tap = $('#intro-tap');
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      v.pause();
+      ov.classList.remove('on');
+      v.removeAttribute('src');
+      v.load();
+      resolve();
+    };
+    ov.classList.add('on');
+    v.src = src;
+    v.onended = finish;
+    v.onerror = finish;
+    skip.onclick = finish;
+    tap.onclick = () => { tap.classList.remove('on'); v.play().catch(finish); };
+    setTimeout(() => skip.classList.add('on'), 1200);
+    v.play().catch(() => tap.classList.add('on'));
+  });
+}
+
+/* ---------- Фоновые эффекты ---------- */
+function ambient(canvas, density = 60) {
+  const ctx = canvas.getContext('2d');
+  const cols = ['#38e8ff', '#ffe14a', '#a78bfa'];
+  let W = 0, H = 0, pts = [];
+  function size() {
+    const d = Math.min(devicePixelRatio || 1, 2);
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = W * d; canvas.height = H * d;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    pts = Array.from({ length: density }, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - .5) * .25, vy: -.1 - Math.random() * .35,
+      r: Math.random() * 1.6 + .4, c: cols[(Math.random() * 3) | 0]
+    }));
+  }
+  size();
+  addEventListener('resize', size);
+  (function frame() {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of pts) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
+      if (p.x < -5) p.x = W + 5;
+      if (p.x > W + 5) p.x = -5;
+    }
+    ctx.lineWidth = 1;
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+      const a = pts[i], b = pts[j], dx = a.x - b.x, dy = a.y - b.y, d = dx * dx + dy * dy;
+      if (d < 12000) {
+        ctx.globalAlpha = (1 - d / 12000) * .25;
+        ctx.strokeStyle = '#38e8ff';
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+    for (const p of pts) {
+      ctx.globalAlpha = .9; ctx.fillStyle = p.c;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  })();
+}
+function burstFX(canvas) {
+  const ctx = canvas.getContext('2d');
+  let parts = [], raf = 0;
+  function size() {
+    const d = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = canvas.clientWidth * d; canvas.height = canvas.clientHeight * d;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+  }
+  size();
+  addEventListener('resize', size);
+  function tick() {
+    ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    parts = parts.filter(p => p.life > 0);
+    for (const p of parts) {
+      p.vx *= .97; p.vy = p.vy * .97 + p.g;
+      p.x += p.vx; p.y += p.vy; p.life -= p.dec;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(p.x, p.y, p.s, p.s);
+    }
+    ctx.globalAlpha = 1;
+    raf = parts.length ? requestAnimationFrame(tick) : 0;
+  }
+  return (cx, cy, colors, n = 150) => {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 9;
+      parts.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: .05,
+        life: 1, dec: .012 + Math.random() * .018, s: 1.5 + Math.random() * 3,
+        c: colors[(Math.random() * colors.length) | 0] });
+    }
+    if (!raf) raf = requestAnimationFrame(tick);
+  };
+}
+
+/* ---------- Карточки (DOM) ---------- */
+function tilt(el) {
+  el.addEventListener('pointermove', e => {
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+    el.style.setProperty('--ry', (x * 22) + 'deg');
+    el.style.setProperty('--rx', (-y * 22) + 'deg');
+  });
+  el.addEventListener('pointerleave', () => {
+    el.style.setProperty('--rx', '0deg');
+    el.style.setProperty('--ry', '0deg');
+  });
+}
+function makeCard(rar) {
+  const R = RARITY[rar];
+  const el = document.createElement('div');
+  el.className = 'hwcard' + (rar === 'crystal' ? ' crystal' : '');
+  el.style.setProperty('--rc', R.rc);
+  el.style.setProperty('--glow', R.glow);
+  el.innerHTML = '<div class="inner"><div class="face back"><div class="q">?</div></div><div class="face front"><img alt=""></div></div>';
+  tilt(el);
+  return el;
+}
+function rarHTML(rar) {
+  const R = RARITY[rar];
+  return `<div class="rar3d" data-text="${R.name}"><span style="background-image:${R.grad}">${R.name}</span></div>`;
+}
+
+/* ---------- Экраны и навигация ---------- */
+const SCREENS = ['menu', 'list', 'settings'];
+function go(name) {
+  for (const s of SCREENS) $('#s-' + s).classList.toggle('on', s === name);
+  $('#nav').classList.remove('hide');
+  document.querySelectorAll('.nb').forEach(b => b.classList.toggle('on', b.dataset.go === name));
+  if (name === 'menu') renderMenu();
+  if (name === 'list') renderList();
+  if (name === 'settings') renderSettings();
+}
+document.querySelectorAll('.nb').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+
+function ownedCount() { return CARDS.filter(c => (PROFILE.owned[c.id] || 0) > 0).length; }
+function renderMenu() { $('#st-col').textContent = ownedCount() + '/' + CARDS.length; }
+/* ---------- Звёзды: повторки → уровни (макс. 5★) ---------- */
+/* Повторок нужно для перехода с текущей звезды на следующую (счёт идёт с нуля на каждом уровне) */
+const REQ = { 1: 5, 2: 10, 3: 20, 4: 40 };
+/* Для старых профилей: из общего числа повторок восстанавливаем звезду и прогресс */
+function deriveLvl(d) {
+  let stars = 1, rem = d;
+  while (stars < 5 && rem >= REQ[stars]) { rem -= REQ[stars]; stars++; }
+  return { stars, prog: stars >= 5 ? 0 : rem };
+}
+function getLvl(id) {
+  PROFILE.lvl = PROFILE.lvl || {};
+  if (!PROFILE.lvl[id]) PROFILE.lvl[id] = deriveLvl(Math.max(0, (PROFILE.owned[id] || 0) - 1));
+  return PROFILE.lvl[id];
+}
+function levelInfo(s) {
+  const req = s.stars >= 5 ? null : REQ[s.stars];
+  const pct = req === null ? 100 : Math.min(100, s.prog / req * 100);
+  return { stars: s.stars, prog: s.prog, req, pct };
+}
+const STAR_PATH = 'M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1l1.2-6.9-5-4.9 6.9-1z';
+function starsHTML(n, rar) {
+  const R = RARITY[rar];
+  const items = [1, 2, 3, 4, 5].map(i => `<svg viewBox="0 0 24 24" class="${i <= n ? 'on' : ''}"><path d="${STAR_PATH}"/></svg>`).join('');
+  return `<div class="stars" style="--rc:${R.rc}">${items}</div>`;
+}
+
+function renderList() {
+  const box = $('#list');
+  box.innerHTML = '';
+  const sorted = [...CARDS].sort((a, b) => RARITY_ORDER.indexOf(a.rar) - RARITY_ORDER.indexOf(b.rar));
+  for (const c of sorted) {
+    const R = RARITY[c.rar];
+    const owned = (PROFILE.owned[c.id] || 0) > 0;
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.style.setProperty('--rc', R.rc);
+    tile.style.setProperty('--rs', R.glow);
+    const head = document.createElement('div');
+    head.className = 'tile-head';
+    head.textContent = owned ? c.name : '???';
+    const body = document.createElement('div');
+    body.className = 'tile-body' + (owned ? '' : ' locked');
+    if (owned) {
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = urlOf(c.res) || '';
+      body.appendChild(img);
+    }
+    const foot = document.createElement('div');
+    foot.className = 'tile-foot';
+    foot.innerHTML = rarHTML(c.rar) + (owned ? starsHTML(levelInfo(getLvl(c.id)).stars, c.rar) : '');
+    tile.append(head, body, foot);
+    box.appendChild(tile);
+  }
+}
+function avatarSVG(ch) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1a24"/><stop offset="1" stop-color="#07090c"/></linearGradient></defs><rect width="200" height="200" fill="url(#g)"/><text x="100" y="128" text-anchor="middle" font-family="Russo One,sans-serif" font-size="84" fill="#ffe14a">${ch}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+function renderSettings() {
+  const ch = ((PROFILE.name || 'H')[0] || 'H').toUpperCase();
+  $('#avatar').src = PROFILE.photo || avatarSVG(ch);
+  $('#pid').textContent = PROFILE.id;
+}
+
+/* ---------- Открытие карточки ---------- */
+const rv = {
+  el: $('#s-reveal'), stage: $('#rv-stage'), top: $('#rv-top'), info: $('#rv-info'),
+  rar: $('#rv-rar'), stars: $('#rv-stars'), name: $('#rv-name'), bg: $('#rv-bg'), glow: $('#rv-glow'), exit: $('#rv-exit'), card: null
+};
+const RevealFX = (() => {
+  const N = 1400;
+  let renderer = null, scene, camera, points, geo, shock, raf = 0, t = 0;
+  let scale = 1, scaleT = 1, bw = 0, shockT = 0, ok = null;
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  const bpos = new Float32Array(N * 3), bvel = new Float32Array(N * 3);
+  const orb = [];
+  for (let i = 0; i < N; i++) orb.push({
+    r: 3.0 + Math.random() * 1.6, a: Math.random() * Math.PI * 2, y: (Math.random() - .5) * .7,
+    sp: .2 + Math.random() * .5, ph: Math.random() * 6.28, ring: i % 3, dir: i % 2 ? 1 : -1
+  });
+  function makeGlow() {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d');
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)');
+    gr.addColorStop(.3, 'rgba(255,255,255,.55)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+  }
+  function resize() {
+    if (!renderer) return;
+    const w = innerWidth, h = innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  function init() {
+    if (ok !== null) return ok;
+    if (typeof THREE === 'undefined') return (ok = false);
+    renderer = new THREE.WebGLRenderer({ canvas: $('#rv-canvas'), alpha: true, antialias: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x000000, 0);
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(55, 1, .1, 100);
+    camera.position.z = 9;
+    geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({ size: .22, map: makeGlow(), vertexColors: true, transparent: true,
+      depthWrite: false, blending: THREE.AdditiveBlending });
+    points = new THREE.Points(geo, mat);
+    scene.add(points);
+    shock = new THREE.Mesh(new THREE.RingGeometry(.92, 1, 96), new THREE.MeshBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    scene.add(shock);
+    resize();
+    addEventListener('resize', resize);
+    return (ok = true);
+  }
+  function setColors(fx) {
+    const cs = fx.map(h => new THREE.Color(h));
+    for (let i = 0; i < N; i++) {
+      const c = cs[i % cs.length];
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    geo.attributes.color.needsUpdate = true;
+    shock.material.color.copy(cs[0]);
+  }
+  function frame() {
+    raf = requestAnimationFrame(frame);
+    t += .016;
+    scale += (scaleT - scale) * .07;
+    for (let i = 0; i < N; i++) {
+      const o = orb[i];
+      const a = o.a + t * o.sp * o.dir;
+      const x = Math.cos(a) * o.r, z = Math.sin(a) * o.r;
+      const y = o.y + Math.sin(t * 1.4 + o.ph) * .25;
+      const tl = o.ring * (Math.PI / 3);
+      const oy = y * Math.cos(tl) - z * Math.sin(tl), oz = y * Math.sin(tl) + z * Math.cos(tl);
+      let px = x * scale, py = oy * scale, pz = oz * scale;
+      if (bw > 0) {
+        const k = i * 3;
+        bpos[k] += bvel[k]; bpos[k + 1] += bvel[k + 1]; bpos[k + 2] += bvel[k + 2];
+        bvel[k] *= .965; bvel[k + 1] *= .965; bvel[k + 2] *= .965;
+        px = px * (1 - bw) + bpos[k] * bw;
+        py = py * (1 - bw) + bpos[k + 1] * bw;
+        pz = pz * (1 - bw) + bpos[k + 2] * bw;
+      }
+      pos[i * 3] = px; pos[i * 3 + 1] = py; pos[i * 3 + 2] = pz;
+    }
+    if (bw > 0) bw = Math.max(0, bw - .008);
+    geo.attributes.position.needsUpdate = true;
+    points.rotation.y = t * .12;
+    points.rotation.x = .25;
+    if (shockT > 0) {
+      shockT += .03;
+      shock.scale.setScalar(1 + shockT * 9);
+      shock.material.opacity = Math.max(0, .9 - shockT * 1.1);
+      if (shockT > 1) { shockT = 0; shock.material.opacity = 0; }
+    }
+    renderer.render(scene, camera);
+  }
+  function start(fx) {
+    if (!init()) return;
+    setColors(fx);
+    scale = .55; scaleT = .55; bw = 0; shockT = 0;
+    if (!raf) frame();
+  }
+  function burst(fx) {
+    if (!init()) return;
+    setColors(fx);
+    for (let i = 0; i < N; i++) {
+      const k = i * 3;
+      bpos[k] = pos[k]; bpos[k + 1] = pos[k + 1]; bpos[k + 2] = pos[k + 2];
+      const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, sq = Math.sqrt(1 - u * u);
+      const sp = .08 + Math.random() * .22;
+      bvel[k] = sq * Math.cos(th) * sp; bvel[k + 1] = u * sp; bvel[k + 2] = sq * Math.sin(th) * sp;
+    }
+    bw = 1;
+    shockT = .0001;
+    scaleT = 1.25;
+    setTimeout(() => { scaleT = 1; }, 500);
+  }
+  function stop() { cancelAnimationFrame(raf); raf = 0; }
+  return { start, burst, stop };
+})();
+let busy = false;
+
+function buildBgLines(text, color) {
+  rv.bg.innerHTML = '';
+  const t = `${text} · `;
+  for (let i = 0; i < 6; i++) {
+    const l = document.createElement('div');
+    l.className = 'rv-line';
+    l.style.top = (i * 17 - 4) + '%';
+    l.style.animationDuration = (18 + i * 3) + 's';
+    l.style.animationDirection = i % 2 ? 'reverse' : 'normal';
+    l.style.setProperty('--rcol', color);
+    l.innerHTML = `<span>${t}</span><span>${t}</span>`;
+    rv.bg.appendChild(l);
+  }
+}
+const bdg = {
+  root: $('#s-badge'), box: $('#bdg'), name: $('#bdgName'), rar: $('#bdgRar'), face: $('#bdgFace'),
+  stars: $('#bdgStars'), fill: $('#bdgFill'), cnt: $('#bdgCnt'), lvl: $('#bdgLvl')
+};
+function cntText(i) {
+  return i.stars >= 5 ? 'МАКСИМАЛЬНЫЙ УРОВЕНЬ' : `${i.prog} / ${i.req} повторок до ${i.stars + 1}★`;
+}
+function setFill(p, anim) {
+  bdg.fill.style.transition = anim ? 'width .9s cubic-bezier(.2,.7,.2,1)' : 'none';
+  bdg.fill.style.width = p + '%';
+}
+async function showBadge(card, before, after, url) {
+  const R = RARITY[card.rar];
+  bdg.root.style.setProperty('--rc', R.rc);
+  bdg.root.style.setProperty('--glow', R.glow);
+  bdg.name.textContent = card.name;
+  bdg.rar.innerHTML = rarHTML(card.rar);
+  bdg.face.style.backgroundImage = `url("${url}")`;
+  const oldI = levelInfo(before), newI = levelInfo(after);
+  bdg.stars.innerHTML = starsHTML(oldI.stars, card.rar);
+  bdg.lvl.classList.remove('show');
+  setFill(oldI.pct, false);
+  bdg.cnt.textContent = cntText(oldI);
+  bdg.root.classList.add('on');
+  bdg.box.animate([
+    { transform: 'rotateX(-70deg) translateY(60px) scale(.7)', opacity: 0 },
+    { transform: 'rotateX(8deg) rotateY(-6deg) scale(1.04)', opacity: 1, offset: .7 },
+    { transform: 'rotateX(0) rotateY(0) scale(1)', opacity: 1 }
+  ], { duration: 800, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+  await sleep(1000);
+
+  if (newI.stars > oldI.stars) {
+    setFill(100, true);
+    await sleep(950);
+    setFill(0, false);
+    await sleep(120);
+    bdg.stars.innerHTML = starsHTML(newI.stars, card.rar);
+    bdg.stars.querySelectorAll('svg')[newI.stars - 1].classList.add('pop');
+    playSfx('sfx_star');
+    bdg.cnt.textContent = cntText(newI);
+    bdg.lvl.classList.add('show');
+    setFill(newI.pct, true);
+    await sleep(950);
+  } else {
+    setFill(newI.pct, true);
+    await sleep(950);
+    bdg.cnt.textContent = cntText(newI);
+  }
+
+  await new Promise(res => { bdg.root.onclick = () => res(); });
+  bdg.root.onclick = null;
+  bdg.root.classList.remove('on');
+}
+
+async function openCard() {
+  if (busy) return;
+  busy = true;
+
+  const roll = Math.random() * 100;
+  const card = CARDS.find(c => c.id === (roll < 11.88 ? 'kurzhna' : 'erilia'));
+  const before = { ...getLvl(card.id) };
+  const dupe = (PROFILE.owned[card.id] || 0) > 0;
+  PROFILE.owned[card.id] = (PROFILE.owned[card.id] || 0) + 1;
+
+  let after = { ...before };
+  if (dupe) {
+    const L = getLvl(card.id);
+    if (L.stars < 5) {
+      L.prog += 1;
+      if (L.prog >= REQ[L.stars]) { L.stars += 1; L.prog = 0; }
+    }
+    after = { ...L };
+  }
+  saveProfile();
+
+  const R = RARITY[card.rar];
+  const url = urlOf(card.res) || '';
+  rv.stage.innerHTML = '';
+  const el = makeCard(card.rar);
+  // До переворота карточка нейтральная: без подсказки редкости
+  el.classList.remove('crystal');
+  el.style.setProperty('--rc', '#7fd8ff');
+  el.style.setProperty('--glow', 'rgba(127,216,255,.35)');
+  el.querySelector('img').src = url;
+  rv.stage.appendChild(el);
+  rv.card = el;
+
+  rv.top.textContent = dupe ? 'Получена повторка' : 'Открыта новая карточка';
+  rv.name.textContent = card.name;
+  rv.rar.innerHTML = rarHTML(card.rar);
+  rv.stars.innerHTML = starsHTML(levelInfo(before).stars, card.rar);
+  rv.el.style.setProperty('--rcol', '#7fd8ff');
+  buildBgLines('HYPERWORLD · NEW ERA', '#7fd8ff');
+  rv.top.classList.remove('show');
+  rv.info.classList.remove('show');
+  rv.exit.classList.remove('show');
+  rv.glow.style.opacity = 0;
+  rv.el.classList.add('on');
+  RevealFX.start(['#e6f7ff', '#9fb3c1']);
+
+  await sleep(450);
+  // Частицы видны только в области карточки (они за ней)
+  const cr = el.getBoundingClientRect();
+  $('#rv-canvas').style.clipPath = `inset(${cr.top}px ${innerWidth - cr.right}px ${innerHeight - cr.bottom}px ${cr.left}px)`;
+  rv.stage.animate([
+    { transform: 'translate(0,0)' }, { transform: 'translate(-5px,2px)' }, { transform: 'translate(5px,-2px)' },
+    { transform: 'translate(-3px,-1px)' }, { transform: 'translate(3px,1px)' }, { transform: 'translate(0,0)' }
+  ], { duration: 900, easing: 'linear' });
+  await sleep(900);
+
+  playSfx(dupe ? 'sfx_dupe' : 'sfx_new');
+  const inner = el.querySelector('.inner');
+  const anim = inner.animate([
+    { transform: 'rotateY(0deg) translateZ(0) scale(1)' },
+    { transform: 'rotateY(-28deg) translateZ(70px) scale(1.12)', offset: .35 },
+    { transform: 'rotateY(-10deg) translateZ(30px) scale(1.05)', offset: .55 },
+    { transform: 'rotateY(170deg) translateZ(10px) scale(1)', offset: .85 },
+    { transform: 'rotateY(180deg) translateZ(0) scale(1)' }
+  ], { duration: 1300, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
+  await anim.finished.catch(() => {});
+  // Переворот закончен: показываем редкость
+  if (card.rar === 'crystal') el.classList.add('crystal');
+  el.style.setProperty('--rc', R.rc);
+  el.style.setProperty('--glow', R.glow);
+  rv.el.style.setProperty('--rcol', R.rc);
+  buildBgLines(card.name, R.rc);
+  $('#rv-canvas').style.clipPath = 'none';
+  RevealFX.burst(R.fx);
+  rv.top.classList.add('show');
+  rv.info.classList.add('show');
+  rv.exit.classList.add('show');
+  rv.glow.style.opacity = .45;
+
+  if (dupe) {
+    await sleep(700);
+    await showBadge(card, before, after, url);
+    rv.stars.innerHTML = starsHTML(levelInfo(after).stars, card.rar);
+  }
+  busy = false;
+}
+function closeReveal() {
+  if (rv.card) rv.card.querySelector('.inner').getAnimations().forEach(a => a.cancel());
+  rv.el.classList.remove('on');
+  RevealFX.stop();
+  rv.stage.innerHTML = '';
+  rv.card = null;
+  go('menu');
+}
+$('#rv-exit').addEventListener('click', closeReveal);
+$('#open-btn').addEventListener('click', openCard);
+
+/* =========================================================================
+   ЗАГРУЗЧИК (логика KillerCasino):
+   1. инициализация (анимация)
+   2. проверка ресурсов: что уже лежит в IndexedDB, что нужно докачать
+   3. докачка недостающего с прогрессом (музыка стартует сразу, как только готова)
+   4. завершение: загрузчик скрывается, музыка останавливается
+   ========================================================================= */
+async function downloadMissing(list, base) {
+  setMsg('// Обращение к базе данных HyperWorld');
+  const total = list.reduce((s, r) => s + r.size, 0);
+  let done = 0;
+  LD.size.style.display = 'block';
+  for (const r of list) {
+    try {
+      const blob = await fetchWithProgress(r.url, recv => {
+        const dl = Math.min(done + recv, total);
+        paint(base + (100 - base) * dl / total, `${fmtSize(dl)} / ${fmtSize(total)}`);
+      });
+      if (!blob.size) throw new Error('пустой файл');
+      await kvSet('res:' + r.id, { blob, size: blob.size, savedAt: Date.now() });
+      if (urlCache[r.id]) URL.revokeObjectURL(urlCache[r.id]);
+      urlCache[r.id] = URL.createObjectURL(new Blob([blob], { type: r.type }));
+      done += blob.size;
+    } catch (e) {
+      setMsg('// Ошибка загрузки: ' + r.label);
+      await sleep(1500);
+      setMsg('// Обращение к базе данных HyperWorld');
+    }
+  }
+  LD.size.style.display = 'none';
+  paint(100);
+}
+
+function askUpdate(bytes) {
+  return new Promise(res => {
+    $('#updSize').textContent = fmtSize(bytes);
+    const u = $('#upd');
+    u.classList.add('on');
+    $('#updBtn').onclick = () => {
+      u.classList.remove('on');
+      setTimeout(res, 380);
+    };
+  });
+}
+
+/* Фаза 1: инициализация → проверка → (окно обновления + докачка) */
+async function phaseCheck() {
+  paint(0);
+  setMsg('// Инициализация игры');
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+
+  const keys = await resKeys();
+  if (keys.includes('music')) { await loadCachedUrls(); playBgm(urlOf('music')); }
+  else playBgm(RES.music.url);
+  await animateTo(20, 900);
+
+  setMsg('// Проверка ресурсов игры');
+  await loadCachedUrls();
+  await animateTo(30, 500);
+  const missing = RESOURCES.filter(r => !keys.includes(r.id));
+  if (missing.length) {
+    await askUpdate(missing.reduce((s, r) => s + r.size, 0));
+    await downloadMissing(missing, 30);
+  }
+  await animateTo(100, 300);
+}
+
+/* Фаза 2 (после заставки): повторная проверка → загрузка игры → меню */
+async function phaseFinal() {
+  paint(0);
+  setMsg('// Проверка ресурсов игры');
+  if (bgm && bgm.src) bgm.play().catch(() => {});
+  await animateTo(40, 700);
+  const keys = await resKeys();
+  const missing = RESOURCES.filter(r => !keys.includes(r.id));
+  if (missing.length) await downloadMissing(missing, 40);
+  await loadCachedUrls();
+
+  setMsg('// Загружаем ресурсы игры');
+  await animateTo(100, 900);
+  await loadProfile().catch(() => {});
+  await sleep(400);
+
+  stopBgm();
+  LD.loader.classList.add('done');
+  await sleep(600);
+}
+
+/* ---------- Последовательность запуска ---------- */
+async function afterHumanCheck() {
+  await phaseCheck();
+
+  const introUrl = urlOf('intro');
+  if (introUrl) {
+    // Заставка: загрузчик скрыт, музыка на паузе
+    LD.loader.classList.add('done');
+    stopBgm();
+    await sleep(600);
+    await playIntro(introUrl);
+    LD.loader.classList.remove('done');
+  }
+
+  await phaseFinal();
+
+  ambient($('#fx'));
+  tilt($('#idle-card'));
+  renderSettings();
+  go('menu');
+}
+
+(async function start() {
+  let started = false;
+  const begin = () => { if (!started) { started = true; afterHumanCheck(); } };
+  try {
+    const src = await fetch(toRaw('https://github.com/SyntexHyperSoft/SyntexHyperSoft-Database/blob/main/humancheck.js'), { cache: 'force-cache' })
+      .then(r => { if (!r.ok) throw new Error('humancheck HTTP ' + r.status); return r.text(); });
+    const s = document.createElement('script');
+    s.textContent = src;
+    document.head.appendChild(s);
+    if (window.HumanCheck) HumanCheck.run(begin);
+    else begin();
+  } catch (e) {
+    begin();
+  }
+})();
+
+addEventListener('contextmenu', e => e.preventDefault());
+</script>
+</body>
+</html>

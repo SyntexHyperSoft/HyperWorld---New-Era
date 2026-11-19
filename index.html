@@ -45,6 +45,9 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
 
 /* ===================== ЗАГРУЗЧИК (как в KillerCasino) ===================== */
+#loader,#upd{font-weight:700}
+#loader .lb-text{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
+#loader #lbPct{display:block;margin:4px 0 0;font-size:18px;color:#fff;white-space:nowrap}
 #loader{position:fixed;inset:0;z-index:300;background:#ffffff;overflow:hidden;transition:opacity .6s,visibility .6s}
 #loader.done{opacity:0;visibility:hidden}
 #loader .lgrid{position:absolute;inset:0;pointer-events:none;
@@ -444,15 +447,17 @@ const NE = 'https://github.com/SyntexHyperSoft/HyperWorld---New-Era/blob/main/';
 
 /* Список ресурсов (как RESOURCE_LIST в KillerCasino): id, url, тип, размер */
 const RESOURCES = [
-  { id: 'music',   url: toRaw(NE + 'The%20Unblinking%20Lens.mp3'), type: 'audio/mpeg', size: 5140566,  label: 'Саундтрек' },
-  { id: 'intro',   url: toRaw('https://github.com/SyntexHyperSoft/SyntexHyperSoft-Database/blob/main/SyntaxHyperSoft.mp4'), type: 'video/mp4', size: 15434248, label: 'Заставка' },
+  { id: 'music',   url: toRaw(NE + 'The%20Unblinking%20Lens.mp3'), type: 'audio/mpeg', size: 5140566,  label: 'Загрузочный экран' },
+  { id: 'intro',   url: toRaw('https://github.com/SyntexHyperSoft/SyntexHyperSoft-Database/blob/main/SyntaxHyperSoft.mp4'), type: 'video/mp4', size: 15434248, label: 'Интро' },
   { id: 'erilia',  url: toRaw(NE + '%D0%AD%D0%BB%D0%B8%D1%80%D0%B8%D1%8F.png'), type: 'image/png', size: 1355207, label: 'Элирия' },
   { id: 'kurzhna', url: toRaw(NE + '%D0%9A%D1%83%D1%80%D1%8D%D0%BD%D0%B0.png'), type: 'image/png', size: 1546504, label: 'Курэна' },
-  { id: 'sfx_new',  url: toRaw(NE + '%D0%9D%D0%BE%D0%B2%D0%B0%D1%8F.mp3'), type: 'audio/mpeg', size: 38022, label: 'Новая карточка' },
-  { id: 'sfx_dupe', url: toRaw(NE + '%D0%9F%D0%BE%D0%B2%D1%82%D0%BE%D1%80%D0%BA%D0%B0.mp3'), type: 'audio/mpeg', size: 90925, label: 'Повторка' },
-  { id: 'sfx_star', url: toRaw(NE + 'StarUP.mp3'), type: 'audio/mpeg', size: 21523, label: 'Повышение звезды' },
+  { id: 'sfx_new',  url: toRaw(NE + '%D0%9D%D0%BE%D0%B2%D0%B0%D1%8F.mp3'), type: 'audio/mpeg', size: 38022, label: 'Звук новой карточки' },
+  { id: 'sfx_dupe', url: toRaw(NE + '%D0%9F%D0%BE%D0%B2%D1%82%D0%BE%D1%80%D0%BA%D0%B0.mp3'), type: 'audio/mpeg', size: 90925, label: 'Звук повторки' },
+  { id: 'sfx_star', url: toRaw(NE + 'StarUP.mp3'), type: 'audio/mpeg', size: 21523, label: 'Звук StarUP' },
   { id: 'zeiron',  url: toRaw(NE + '%D0%97%D0%B5%D0%B9%D1%80%D0%BE%D0%BD.png'), type: 'image/png', size: 2778302, label: 'Зейрон' },
-  { id: 'aurelia', url: toRaw(NE + '%D0%90%D1%83%D1%80%D0%B5%D0%BB%D0%B8%D1%8F.png'), type: 'image/png', size: 2303032, label: 'Аурелия' }
+  { id: 'aurelia', url: toRaw(NE + '%D0%90%D1%83%D1%80%D0%B5%D0%BB%D0%B8%D1%8F.png'), type: 'image/png', size: 2303032, label: 'Аурелия' },
+  { id: 'selestia', url: toRaw(NE + '%D0%A1%D0%B5%D0%BB%D0%B5%D1%81%D1%82%D0%B8%D1%8F.png'), type: 'image/png', size: 2116902, label: 'Селестия' },
+  { id: 'rayna', url: toRaw(NE + '%D0%A0%D1%8D%D0%B9%D0%BD%D0%B0.png'), type: 'image/png', size: 2369168, label: 'Рэйна' }
 ];
 const RES = Object.fromEntries(RESOURCES.map(r => [r.id, r]));
 
@@ -469,20 +474,22 @@ const RARITY = {
 
 /* Карточки. chance — шанс в %, сумма 100 */
 const CARDS = [
-  { id: 'erilia',  name: 'Элирия',  rar: 'common',    chance: 57, roll: 59.375, res: 'erilia'  },
-  { id: 'zeiron',  name: 'Зейрон',  rar: 'epic',      chance: 23, roll: 21.875, res: 'zeiron'  },
-  { id: 'aurelia', name: 'Аурелия', rar: 'legendary', chance: 12, roll: 11.111, res: 'aurelia' },
-  { id: 'kurzhna', name: 'Курэна',  rar: 'crystal',   chance: 8,  roll: 7.639,  res: 'kurzhna' }
+  { id: 'erilia',   name: 'Элирия',  rar: 'common',    chance: 57, roll: 59.375, res: 'erilia',   fx: ['#ff8ad8', '#ffffff', '#9fe8ff'] },
+  { id: 'zeiron',   name: 'Зейрон',  rar: 'epic',      chance: 23, roll: 21.875, res: 'zeiron',   fx: ['#39ff6a', '#b6ff3d', '#3a0f5c'] },
+  { id: 'aurelia',  name: 'Аурелия', rar: 'legendary', chance: 12, roll: 11.111, res: 'aurelia',  fx: ['#ffd84a', '#fff3b0', '#ff9f1c'] },
+  { id: 'kurzhna',  name: 'Курэна',  rar: 'superrare', chance: 4,  roll: 4.167,  res: 'kurzhna',  fx: ['#9d4dff', '#2a0a4a', '#e0b8ff'] },
+  { id: 'rayna',    name: 'Рэйна',   rar: 'crystal',   chance: 2,  roll: 1.736,  res: 'rayna',    fx: ['#ff3b4d', '#ff9aa5', '#2a0005'] },
+  { id: 'selestia', name: 'Селестия', rar: 'crystal',  chance: 2,  roll: 1.736,  res: 'selestia', fx: ['#3ad6ff', '#a9f0ff', '#1b4fd6'] }
 ];
 
 /* Выбор карточки.
-   chance — целевая доля редкости в итоге; roll — вероятность при обычном выпадении.
-   roll подобран так, что с учётом гарантий итоговые доли совпадают с chance:
-   гарантии дают эпическую ~2%, легендарную ~1.33%, кристальную ~0.67% открытий. */
+   chance — заявленная доля в итоге; roll — вероятность обычного выпадения.
+   roll подобран так, что с учётом гарантий итоговые доли совпадают с chance. */
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function pickCard() {
   const n = (PROFILE.opens || 0) + 1;     // номер текущего открытия
   PROFILE.opens = n;
-  if (n % 150 === 0) return CARDS.find(c => c.rar === 'crystal');
+  if (n % 150 === 0) return pickRandom(CARDS.filter(c => c.rar === 'crystal'));
   if (n % 50 === 0) return CARDS.find(c => c.rar === 'legendary');
   if (n % 25 === 0) return CARDS.find(c => c.rar === 'epic');
   let r = Math.random() * 100;
@@ -1329,9 +1336,9 @@ async function openCard() {
   if (card.rar === 'crystal') el.classList.add('crystal');
   el.style.setProperty('--rc', R.rc);
   el.style.setProperty('--glow', R.glow);
-  rv.el.style.setProperty('--rcol', R.rc);
-  buildBgLines(card.name, R.rc);
-  RevealFX.burst(R.fx);
+  rv.el.style.setProperty('--rcol', card.fx[0]);
+  buildBgLines(card.name, card.fx[0]);
+  RevealFX.burst(card.fx);
   rv.top.classList.add('show');
   rv.info.classList.add('show');
   rv.glow.style.opacity = .45;
@@ -1380,12 +1387,22 @@ async function stage(msg, work, minMs = 700, auto = true) {
   if (left > 0) await animateTo(100, left); else paint(100);
   return r;
 }
-async function downloadMissing(list) {
+function kvDelete(k) {
+  return idb().then(d => new Promise((res, rej) => {
+    const t = d.transaction('kv', 'readwrite');
+    t.objectStore('kv').delete(k);
+    t.oncomplete = () => res(true);
+    t.onerror = () => rej(t.error);
+  }));
+}
+/* Загрузка файлов с шкалой; у каждого файла в подписи его название */
+async function downloadMissing(list, label = '// Обращение к базе данных HyperWorld') {
   const total = list.reduce((s, r) => s + r.size, 0);
   let done = 0;
-  return stage('// Обращение к базе данных HyperWorld', async () => {
+  return stage(label, async () => {
     LD.size.style.display = 'block';
     for (const r of list) {
+      setMsg(`${label}: ${r.label}`);
       try {
         const blob = await fetchWithProgress(r.url, recv => {
           const dl = Math.min(done + recv, total);
@@ -1400,7 +1417,6 @@ async function downloadMissing(list) {
       } catch (e) {
         setMsg('// Ошибка загрузки: ' + r.label);
         await sleep(1500);
-        setMsg('// Обращение к базе данных HyperWorld');
       }
     }
     LD.size.style.display = 'none';
@@ -1423,7 +1439,7 @@ function askUpdate(bytes, outdated) {
   });
 }
 
-/* Фаза 1: инициализация → проверка → (окно обновления + загрузка) */
+/* Фаза 1: инициализация → проверка ресурсов → проверка обновлений → (обновление) */
 async function phaseCheck() {
   await stage('// Инициализация игры', async () => {
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
@@ -1432,23 +1448,67 @@ async function phaseCheck() {
     else playBgm(RES.music.url);
   }, 900);
 
-  const missing = await stage('// Проверка ресурсов игры', async () => {
+  // 1. Есть ли все ресурсы в IndexedDB
+  const absent = await stage('// Проверка ресурсов игры', async () => {
     await loadCachedUrls();
-    return findMissing();
+    const out = [];
+    for (const r of RESOURCES) {
+      setMsg('// Проверка ресурсов игры: ' + r.label);
+      const rec = await kvGet('res:' + r.id).catch(() => null);
+      if (!rec || !rec.blob || !(rec.blob.size > 0)) out.push(r);
+      await sleep(60);
+    }
+    return out;
   }, 700);
 
-  if (missing.length) {
-    await askUpdate(missing.reduce((s, r) => s + r.size, 0), LAST_OUTDATED);
-    await downloadMissing(missing);
+  // 2. Есть ли новые версии файлов на GitHub
+  const outdated = await stage('// Проверка наличия обновлений', async () => {
+    await fetchRemoteShas();
+    const out = [];
+    for (const r of RESOURCES) {
+      setMsg('// Проверка наличия обновлений: ' + r.label);
+      const rec = await kvGet('res:' + r.id).catch(() => null);
+      const remote = REMOTE_SHA[r.id];
+      if (rec && rec.blob && remote && rec.sha !== remote) out.push(r);
+      await sleep(60);
+    }
+    return out;
+  }, 700);
+
+  const need = [...absent, ...outdated];
+  if (!need.length) return;
+
+  await askUpdate(need.reduce((s, r) => s + r.size, 0), outdated.length > 0 && absent.length === 0);
+
+  if (outdated.length) {
+    await stage('// Подготовка обновлений', async () => {
+      for (const r of need) {
+        setMsg('// Подготовка обновлений: ' + r.label);
+        await fetch(r.url, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+      }
+    }, 500, false);
+    await stage('// Удаление старых ресурсов игры', async () => {
+      for (const r of outdated) {
+        setMsg('// Удаление старых ресурсов игры: ' + r.label);
+        await kvDelete('res:' + r.id).catch(() => {});
+        if (urlCache[r.id]) { URL.revokeObjectURL(urlCache[r.id]); delete urlCache[r.id]; }
+        await sleep(60);
+      }
+    }, 500, false);
+    await downloadMissing(need, '// Обновление базы данных HyperWorld');
+  } else {
+    await downloadMissing(need, '// Обращение к базе данных HyperWorld');
   }
 }
 
-/* Фаза 2: финальная проверка → загрузка игры → меню */
+/* Фаза 2: загрузка игры → меню */
 async function phaseFinal() {
   if (bgm && bgm.src) bgm.play().catch(() => {});
-  const missing = await stage('// Проверка ресурсов игры', async () => findMissing(), 700);
-  if (missing.length) await downloadMissing(missing);
   await stage('// Загружаем ресурсы игры', async () => {
+    for (const r of RESOURCES) {
+      setMsg('// Загружаем ресурсы игры: ' + r.label);
+      await sleep(40);
+    }
     await loadCachedUrls();
     await loadProfile().catch(() => {});
   }, 900);
@@ -1467,7 +1527,7 @@ async function afterHumanCheck() {
     LD.loader.classList.remove('done');
     LD.size.style.display = 'block';
     introCb = n => paint(Math.min(100, n / RES.intro.size * 100), `${fmtSize(n)} / ${fmtSize(RES.intro.size)}`);
-    introUrl = await stage('// Обращение к базе данных HyperWorld', () => prefetchIntro(), 300, false);
+    introUrl = await stage('// Обращение к базе данных HyperWorld: ' + RES.intro.label, () => prefetchIntro(), 300, false);
     introCb = null;
     LD.size.style.display = 'none';
   }

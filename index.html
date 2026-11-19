@@ -185,8 +185,10 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 .adm-btn:active{transform:scale(.97)}
 .adm-msg{min-height:14px;text-align:center;font-family:var(--mono);font-size:10px;color:#3dff7a;letter-spacing:.1em;margin-top:8px}
 
-/* ===== Индикатор заряда телефона (меню/список/настройки) ===== */
-#batt{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 10px);transform:translateX(-50%);display:none;align-items:center;gap:7px;z-index:80;pointer-events:none;background:rgba(5,8,12,.55);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:5px 12px 5px 10px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* ===== Индикатор заряда телефона (меню/список/настройки) =====
+   Отступ сверху: max(env(safe-area-inset-top), зона из Telegram) — чтобы пилюля
+   не перекрывалась «каплей»/точкой фронтальной камеры и шапкой Telegram */
+#batt{position:fixed;left:50%;top:calc(max(env(safe-area-inset-top,0px),var(--tg-top,0px)) + 8px);transform:translateX(-50%);display:none;align-items:center;gap:7px;z-index:80;pointer-events:none;background:rgba(5,8,12,.55);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:5px 12px 5px 10px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 #batt .bi{position:relative;width:22px;height:12px;border:1.5px solid var(--bc,#3dff7a);border-radius:3px;flex:none}
 #batt .bi::before{content:'';position:absolute;right:-4px;top:50%;transform:translateY(-50%);width:2.5px;height:5px;background:var(--bc,#3dff7a);border-radius:1px}
 #batt .bi::after{content:'';position:absolute;left:1.5px;top:1.5px;bottom:1.5px;width:var(--lv,0%);background:var(--bc,#3dff7a);border-radius:1.5px;transition:width .4s,background .3s}
@@ -301,7 +303,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
     </div>
     <div class="lb-size" id="lbSize" style="display:none"></div>
     <div class="lb-row2">
-      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.0</span>
+      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.2</span>
       <div class="lb-progress"><i id="lbFill"></i></div>
     </div>
     <div id="sound-hint">ТАПНИТЕ, ЧТОБЫ ВКЛЮЧИТЬ МУЗЫКУ</div>
@@ -1053,6 +1055,34 @@ function battRender(b) {
   BATTEL.querySelector('span').textContent = p + '%';
 }
 function battShow(v) { BATTEL.style.display = v ? 'flex' : 'none'; }
+
+/* Безопасная зона сверху: на телефонах с «каплей»/точкой фронтальной камеры пилюля
+   в статус-баре перекрывается вырезом. Берём max(safeAreaInset.top, contentSafeAreaInset.top)
+   из Telegram (системные бары/вырез + шапка Telegram) и подставляем в CSS через --tg-top. */
+(function battSafeTop() {
+  const apply = () => {
+    let t = 0;
+    try {
+      const tg = window.Telegram && Telegram.WebApp;
+      if (tg) {
+        const a = tg.safeAreaInset, c = tg.contentSafeAreaInset;   // Bot API 8.0+
+        t = Math.max(+((a && a.top) || 0), +((c && c.top) || 0));
+      }
+    } catch (e) {}
+    document.documentElement.style.setProperty('--tg-top', Math.max(0, t) + 'px');
+  };
+  apply();
+  try {
+    const tg = window.Telegram && Telegram.WebApp;
+    if (tg && tg.onEvent) {
+      tg.onEvent('safeAreaChanged', apply);
+      tg.onEvent('contentSafeAreaChanged', apply);
+      tg.onEvent('viewportChanged', apply);
+    }
+  } catch (e) {}
+  window.addEventListener('resize', apply);
+  window.addEventListener('orientationchange', apply);
+})();
 (async () => {
   if (!navigator.getBattery) return;   // iOS/WebKit: API нет — индикатор скрыт
   try {

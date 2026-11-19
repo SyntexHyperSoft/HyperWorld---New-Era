@@ -63,7 +63,8 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 #loader-overlay{position:absolute;left:0;right:0;bottom:0;z-index:4;
   background:linear-gradient(180deg,transparent,rgba(0,0,0,.88) 40%);
   padding:14px 20px calc(18px + var(--safe-b));display:flex;flex-direction:column;gap:9px;color:#fff}
-.lb-row{display:flex;align-items:center;gap:16px}
+/* (00.00%) по центру экрана: спиннер справа (18px + отступ 16px) сдвигал текст влево — компенсируем слева */
+.lb-row{display:flex;align-items:center;gap:16px;padding-left:34px}
 .lb-text{flex:1;text-align:center;font-size:14px;text-shadow:0 2px 6px rgba(0,0,0,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #lbMsg::after{content:'...';animation:dots 1.2s steps(4) infinite}
 #lbPct{color:#bbb;margin-left:6px;font-family:var(--mono);font-variant-numeric:tabular-nums}
@@ -165,6 +166,32 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 .puser{font-family:var(--mono);font-size:14px;letter-spacing:.06em;color:var(--cy);margin-top:8px;word-break:break-all}
 .pid{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--dim);margin-top:8px}
 
+/* ===== АДМИН-ПАНЕЛЬ (в настройках) ===== */
+#adm{width:min(84vw,320px);margin:18px auto 0}
+.adm{padding:18px 16px;background:rgba(9,14,20,.72);border:1px solid rgba(255,225,74,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
+.adm-title{font-family:var(--head);font-size:16px;letter-spacing:.14em;color:var(--acc);text-align:center}
+.adm-sub{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--dim);text-align:center;margin:8px 0 10px;line-height:1.5}
+.adm-grid{display:flex;flex-direction:column;gap:8px}
+.adm-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.adm-name{font-family:var(--mono);font-size:11px;letter-spacing:.06em;white-space:nowrap}
+.adm-in{flex:none;width:86px;background:#05080c;border:1px solid rgba(56,232,255,.4);color:#fff;font-family:var(--mono);font-size:13px;padding:8px 10px;text-align:center;border-radius:6px;outline:none;user-select:text;-webkit-user-select:text}
+.adm-in:focus{border-color:var(--acc)}
+.adm-in::-webkit-outer-spin-button,.adm-in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.adm-in{-moz-appearance:textfield;appearance:textfield}
+.adm-info{font-family:var(--mono);font-size:9.5px;line-height:1.7;color:var(--dim);text-align:center;margin:10px 0;letter-spacing:.04em}
+.adm-btns{display:flex;flex-direction:column;gap:8px;margin:6px 0 4px}
+.adm-btn{font-family:var(--head);font-size:12px;letter-spacing:.1em;color:#07090c;background:linear-gradient(135deg,#ffe14a,#ffb028);border:0;padding:12px 10px;cursor:pointer;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);transition:.15s}
+.adm-btn.ghost{background:transparent;color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.adm-btn:active{transform:scale(.97)}
+.adm-msg{min-height:14px;text-align:center;font-family:var(--mono);font-size:10px;color:#3dff7a;letter-spacing:.1em;margin-top:8px}
+
+/* ===== Индикатор заряда телефона (меню/список/настройки) ===== */
+#batt{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 10px);transform:translateX(-50%);display:none;align-items:center;gap:7px;z-index:80;pointer-events:none;background:rgba(5,8,12,.55);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:5px 12px 5px 10px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#batt .bi{position:relative;width:22px;height:12px;border:1.5px solid var(--bc,#3dff7a);border-radius:3px;flex:none}
+#batt .bi::before{content:'';position:absolute;right:-4px;top:50%;transform:translateY(-50%);width:2.5px;height:5px;background:var(--bc,#3dff7a);border-radius:1px}
+#batt .bi::after{content:'';position:absolute;left:1.5px;top:1.5px;bottom:1.5px;width:var(--lv,0%);background:var(--bc,#3dff7a);border-radius:1.5px;transition:width .4s,background .3s}
+#batt span{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:#fff}
+
 /* ===================== ОТКРЫТИЕ КАРТОЧКИ ===================== */
 #s-reveal{position:fixed;inset:0;z-index:30;background:#000;opacity:0;pointer-events:none;transition:opacity .5s}
 #s-reveal.on{opacity:1;pointer-events:auto}
@@ -249,9 +276,15 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 /* ===== GPU: слои для анимаций ===== */
 .hwcard,.bigbtn,#nav,.nb,.screen,#loader,#s-badge .bdg{will-change:transform,opacity}
 #rv-canvas{will-change:transform}
+.rv-line,.face::before,.bdg::after{will-change:transform}
+/* Оптимизация ФПС: пока слой скрыт — его CSS-анимации не тратят ресурсы */
+.screen:not(.on) *,#loader.done *,#s-reveal:not(.on) *,#s-badge:not(.on) *,#upd:not(.on) *{animation-play-state:paused!important}
 </style>
 </head>
 <body>
+
+<!-- Индикатор заряда телефона: показывается сверху по центру на экранах меню/список/настройки -->
+<div id="batt" style="display:none"><i class="bi"></i><span>—</span></div>
 
 <!-- ============ ЗАГРУЗЧИК ============ -->
 <div id="loader">
@@ -308,7 +341,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
       <div class="m-sub">Карточные бойцы</div>
       <div class="m-stats">
         <span class="chip">КОЛЛЕКЦИЯ <b id="st-col">0/2</b></span>
-        <span class="chip">ШАНС РЕДКОЙ <b>43%</b></span>
+        <span class="chip">ШАНС РЕДКОЙ <b id="st-rare">40%</b></span>
         <span class="chip" id="st-guar"></span>
       </div>
     </div>
@@ -342,6 +375,8 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
         <div class="puser" id="puser"></div>
         <div class="pid" id="pid"></div>
       </div>
+      <!-- Админ-панель: показывается только для профиля с нужным Telegram ID -->
+      <div id="adm" style="display:none"></div>
     </div>
   </section>
 
@@ -472,27 +507,80 @@ const RARITY = {
   crystal:   { name: 'Кристальная', rc: '#9fe7ff', glow: 'rgba(159,231,255,.55)', grad: 'linear-gradient(90deg,#eaffff,#7fd8ff,#c79bff,#ffffff,#7fd8ff,#eaffff)', fx: ['#eaffff', '#7fd8ff', '#c79bff'] }
 };
 
-/* Карточки. chance — шанс в %, сумма 100 */
+/* Карточки. chance — реальный шанс в % (пересчитывается с учётом гарантий),
+   roll — шанс обычного ролла (вычисляется в applyChanceSystem при запуске).
+   Порядок редкостей строго по убыванию: Обычная > Редкая (нет карточки) > Суперредкая > Эпическая > Легендарная > Кристальная.
+   Значения ниже — стандартные (60/18/12/6/3/1 без «Редкой»), при старте пересчитываются. */
 const CARDS = [
-  { id: 'erilia',   name: 'Элирия',  rar: 'common',    chance: 57, roll: 59.375, res: 'erilia',   fx: ['#ff8ad8', '#ffffff', '#9fe8ff'] },
-  { id: 'zeiron',   name: 'Зейрон',  rar: 'epic',      chance: 23, roll: 21.875, res: 'zeiron',   fx: ['#39ff6a', '#b6ff3d', '#3a0f5c'] },
-  { id: 'aurelia',  name: 'Аурелия', rar: 'legendary', chance: 12, roll: 11.111, res: 'aurelia',  fx: ['#ffd84a', '#fff3b0', '#ff9f1c'] },
-  { id: 'kurzhna',  name: 'Курэна',  rar: 'superrare', chance: 4,  roll: 4.167,  res: 'kurzhna',  fx: ['#9d4dff', '#2a0a4a', '#e0b8ff'] },
-  { id: 'rayna',    name: 'Рэйна',   rar: 'crystal',   chance: 2,  roll: 1.736,  res: 'rayna',    fx: ['#ff3b4d', '#ff9aa5', '#2a0005'] },
-  { id: 'selestia', name: 'Селестия', rar: 'crystal',  chance: 2,  roll: 1.736,  res: 'selestia', fx: ['#3ad6ff', '#a9f0ff', '#1b4fd6'] }
+  { id: 'erilia',   name: 'Элирия',  rar: 'common',    chance: 73.17, roll: 76.22,  res: 'erilia',   fx: ['#ff8ad8', '#ffffff', '#9fe8ff'] },
+  { id: 'zeiron',   name: 'Зейрон',  rar: 'epic',      chance: 7.32,  roll: 5.54,   res: 'zeiron',   fx: ['#39ff6a', '#b6ff3d', '#3a0f5c'] },
+  { id: 'aurelia',  name: 'Аурелия', rar: 'legendary', chance: 3.66,  roll: 2.42,   res: 'aurelia',  fx: ['#ffd84a', '#fff3b0', '#ff9f1c'] },
+  { id: 'kurzhna',  name: 'Курэна',  rar: 'superrare', chance: 14.63, roll: 15.24,  res: 'kurzhna',  fx: ['#9d4dff', '#2a0a4a', '#e0b8ff'] },
+  { id: 'rayna',    name: 'Рэйна',   rar: 'crystal',   chance: 0.61,  roll: 0.29,   res: 'rayna',    fx: ['#ff3b4d', '#ff9aa5', '#2a0005'] },
+  { id: 'selestia', name: 'Селестия', rar: 'crystal',  chance: 0.61,  roll: 0.29,   res: 'selestia', fx: ['#3ad6ff', '#a9f0ff', '#1b4fd6'] }
 ];
 
 /* Выбор карточки.
-   chance — заявленная доля в итоге; roll — вероятность обычного выпадения.
-   roll подобран так, что с учётом гарантий итоговые доли совпадают с chance. */
+   chance — реальная доля в итоге (в %); roll — вероятность обычного ролла.
+   roll вычисляется из chance так, что с учётом гарантий итоговые доли совпадают с chance. */
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+/* Шансы редкостей по умолчанию (вес каждой редкости, %; сумма = 100).
+   Строго по убыванию: Обычная 60 > Редкая 18 > Суперредкая 12 > Эпическая 6 > Легендарная 3 > Кристальная 1.
+   Карточки есть не у всех редкостей («Редкой» нет) — её вес показывается в админке,
+   но в розыгрыше участвуют только редкости с карточками. */
+const DEFAULT_CHANCES = { common: 60, rare: 18, superrare: 12, epic: 6, legendary: 3, crystal: 1 };
+/* Гарантированных выпадений за цикл из 150 открытий: 3 эпические (каждая 25-я), 2 легендарные (каждая 50-я), 1 кристальная (каждая 150-я) */
+const GUAR_PER_CYCLE = { epic: 3, legendary: 2, crystal: 1 };
+
+/* Нормирование весов редкостей по редкостям, у которых есть карточки
+   («Редкой» карточки нет — её вес показывается в админке, но в розыгрыше не участвует).
+   Возвращает доли (0..1) или null, если все веса нулевые. */
+function normShares(vals) {
+  let sum = 0;
+  const w = {};
+  for (const r of RARITY_ORDER) {
+    if (!CARDS.some(x => x.rar === r)) continue;
+    w[r] = Math.max(0, +vals[r] || 0);
+    sum += w[r];
+  }
+  if (sum <= 0) return null;
+  for (const r in w) w[r] /= sum;
+  return w;
+}
+
+/* Веса редкостей: из настроек админа (PROFILE.chances) или null — тогда стандартные. */
+function weightMap() { return PROFILE.chances ? normShares(PROFILE.chances) : null; }
+
+/* Пересчёт chance и roll для каждой карточки из текущих весов.
+   Стандартные шансы нормируются так же, как админские (по редкостям с карточками),
+   поэтому сумма роллов ровно 100 и реальная доля совпадает с показанной.
+   Гарантии учитываются: реальная доля = (обычные роллы + гаранты за цикл) / 150. */
+function applyChanceSystem() {
+  const W = weightMap() || normShares(DEFAULT_CHANCES);
+  const CYCLE = 150, NORMAL = 144;   // 150 открытий за цикл, из них 6 гарантированных
+  for (const rar of RARITY_ORDER) {
+    const same = CARDS.filter(c => c.rar === rar);
+    if (!same.length) continue;
+    const share = W[rar] || 0;
+    const g = share > 0 ? (GUAR_PER_CYCLE[rar] || 0) : 0;             // гаранты активны, только если редкость включена
+    const roll = Math.max(0, share * CYCLE - g) / NORMAL * 100;       // шанс обычного ролла
+    for (const c of same) c.roll = roll / same.length;
+    const fin = (roll / 100 * NORMAL + g) / CYCLE * 100;              // реальная доля редкости
+    for (const c of same) c.chance = fin / same.length;
+  }
+}
+
 function pickCard() {
   const n = (PROFILE.opens || 0) + 1;     // номер текущего открытия
   PROFILE.opens = n;
-  if (n % 150 === 0) return pickRandom(CARDS.filter(c => c.rar === 'crystal'));
-  if (n % 50 === 0) return CARDS.find(c => c.rar === 'legendary');
-  if (n % 25 === 0) return CARDS.find(c => c.rar === 'epic');
-  let r = Math.random() * 100;
+  const W = weightMap();                  // гарантии действуют, только если редкость включена в шансах
+  if (n % 150 === 0 && (!W || W.crystal > 0)) return pickRandom(CARDS.filter(c => c.rar === 'crystal'));
+  if (n % 50 === 0 && (!W || W.legendary > 0)) return CARDS.find(c => c.rar === 'legendary');
+  if (n % 25 === 0 && (!W || W.epic > 0)) return CARDS.find(c => c.rar === 'epic');
+  let total = 0;
+  for (const c of CARDS) total += c.roll;      // нормируем роллы: при ручных шансах сумма может быть ≠ 100
+  let r = Math.random() * total;
   for (const c of CARDS) {
     if (r < c.roll) return c;
     r -= c.roll;
@@ -673,6 +761,7 @@ function mergeSave(a, b) {
 }
 
 let PROFILE = { owned: {}, id: 'HW-' + Math.random().toString(16).slice(2, 10).toUpperCase() };
+applyChanceSystem();   // стартовые шансы (после загрузки профиля пересчитаются, если админ менял их)
 async function loadProfile() {
   const saved = await kvGet('profile').catch(() => null);
   if (saved) PROFILE = Object.assign(PROFILE, saved);
@@ -691,12 +780,14 @@ async function loadProfile() {
     PROFILE.owned = m.owned;
     PROFILE.lvl = m.lvl;
     PROFILE.opens = m.opens;
+    if (!PROFILE.chances && cloud.chances) PROFILE.chances = cloud.chances;   // шансы админа из облака
   }
+  applyChanceSystem();
   saveProfile();
 }
 function saveProfile() {
   kvSet('profile', PROFILE).catch(() => {});
-  cloudSet({ owned: PROFILE.owned || {}, lvl: PROFILE.lvl || {}, opens: PROFILE.opens || 0 });
+  cloudSet({ owned: PROFILE.owned || {}, lvl: PROFILE.lvl || {}, opens: PROFILE.opens || 0, chances: PROFILE.chances || undefined });
 }
 
 /* ---------- Музыка: только во время загрузки ---------- */
@@ -806,7 +897,7 @@ function ambient(canvas, density = 60) {
   const cols = ['#38e8ff', '#ffe14a', '#a78bfa'];
   let W = 0, H = 0, pts = [];
   function size() {
-    const d = Math.min(devicePixelRatio || 1, 2);
+    const d = Math.min(devicePixelRatio || 1, 1.5);   // 1.5 вместо 2: почти вдвое меньше пикселей, вид тот же
     W = canvas.clientWidth; H = canvas.clientHeight;
     canvas.width = W * d; canvas.height = H * d;
     ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -818,22 +909,46 @@ function ambient(canvas, density = 60) {
   }
   size();
   addEventListener('resize', size);
-  let ambOn = true;
-  function frame() {
+  let ambOn = true, paused = false, last = 0;
+  const TH2 = 12000, CELL = 112, GRID_W = 4096;   // CELL² > TH2 → достаточно проверять 4 соседние ячейки
+  function link(a, b) {
+    const dx = a.x - b.x, dy = a.y - b.y, d = dx * dx + dy * dy;
+    if (d < TH2) {
+      ctx.globalAlpha = (1 - d / TH2) * .25;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+  }
+  function frame(now) {
+    if (paused || document.hidden) { ambOn = false; return; }
+    requestAnimationFrame(frame);
+    if (now - last < 33) return;                   // фон рисуем ~30 FPS: нагрузка ниже, картинка та же
+    const k = last ? Math.min(3, (now - last) / 16.7) : 1;   // скорость не зависит от частоты экрана
+    last = now;
     ctx.clearRect(0, 0, W, H);
     for (const p of pts) {
-      p.x += p.vx; p.y += p.vy;
+      p.x += p.vx * k; p.y += p.vy * k;
       if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
       if (p.x < -5) p.x = W + 5;
       if (p.x > W + 5) p.x = -5;
     }
+    /* Линии между близкими точками: пространственная сетка вместо перебора всех пар */
     ctx.lineWidth = 1;
-    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
-      const a = pts[i], b = pts[j], dx = a.x - b.x, dy = a.y - b.y, d = dx * dx + dy * dy;
-      if (d < 12000) {
-        ctx.globalAlpha = (1 - d / 12000) * .25;
-        ctx.strokeStyle = '#38e8ff';
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.strokeStyle = '#38e8ff';
+    const grid = new Map();
+    for (let i = 0; i < pts.length; i++) {
+      const key = (((pts[i].x / CELL) | 0) + 2) * GRID_W + (((pts[i].y / CELL) | 0) + 2);
+      const b = grid.get(key);
+      if (b) b.push(i); else grid.set(key, [i]);
+    }
+    for (const [key, b] of grid) {
+      const gx = (key / GRID_W) | 0, gy = key % GRID_W;
+      for (let a = 0; a < b.length; a++) {
+        const p = pts[b[a]];
+        for (let c = a + 1; c < b.length; c++) link(p, pts[b[c]]);
+        for (let ox = 0; ox <= 1; ox++) for (let oy = ox ? -1 : 1; oy <= 1; oy++) {
+          const nb = grid.get((gx + ox) * GRID_W + (gy + oy));
+          if (nb) for (let c = 0; c < nb.length; c++) link(p, pts[nb[c]]);
+        }
       }
     }
     for (const p of pts) {
@@ -841,13 +956,16 @@ function ambient(canvas, density = 60) {
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
-    if (document.hidden) { ambOn = false; return; }
-    requestAnimationFrame(frame);
   }
-  frame();
+  requestAnimationFrame(frame);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && !ambOn) { ambOn = true; frame(); }
+    if (!document.hidden && !ambOn && !paused) { ambOn = true; last = 0; requestAnimationFrame(frame); }
   });
+  /* Пока открыт экран карточки, фон полностью перекрыт — анимацию можно останавливать */
+  return {
+    pause() { paused = true; },
+    resume() { if (paused) { paused = false; if (!ambOn) { ambOn = true; last = 0; requestAnimationFrame(frame); } } }
+  };
 }
 function burstFX(canvas) {
   const ctx = canvas.getContext('2d');
@@ -885,13 +1003,19 @@ function burstFX(canvas) {
 
 /* ---------- Карточки (DOM) ---------- */
 function tilt(el) {
+  let pend = 0, px = 0, py = 0;
+  const apply = () => {   // одно обновление стиля на кадр вместо обновления на каждое событие
+    pend = 0;
+    el.style.setProperty('--ry', (px * 22) + 'deg');
+    el.style.setProperty('--rx', (-py * 22) + 'deg');
+  };
   el.addEventListener('pointermove', e => {
     const r = el.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-    el.style.setProperty('--ry', (x * 22) + 'deg');
-    el.style.setProperty('--rx', (-y * 22) + 'deg');
+    px = (e.clientX - r.left) / r.width - .5; py = (e.clientY - r.top) / r.height - .5;
+    if (!pend) pend = requestAnimationFrame(apply);
   });
   el.addEventListener('pointerleave', () => {
+    if (pend) { cancelAnimationFrame(pend); pend = 0; }
     el.style.setProperty('--rx', '0deg');
     el.style.setProperty('--ry', '0deg');
   });
@@ -916,12 +1040,36 @@ function buildRar(rar) {
   return `<div class="rar3d" data-text="${R.name}"><span style="background-image:${R.grad}">${R.name}</span></div>`;
 }
 
+/* ---------- Индикатор заряда телефона ----------
+   Только реальный заряд: Web Battery API (Android WebView Telegram, десктопный Chrome).
+   На iOS WebKit не отдаёт заряд — индикатор остаётся скрытым, фейковых значений нет.
+   Цвета: 1–15% красный, 16–35% оранжевый, 36–79% жёлтый, 80–100% зелёный. */
+const BATTEL = $('#batt');
+function battColor(p) { return p <= 15 ? '#ff3b4d' : p <= 35 ? '#ff9f1c' : p <= 79 ? '#ffe14a' : '#3dff7a'; }
+function battRender(b) {
+  const p = Math.round(b.level * 100), c = battColor(p), bi = BATTEL.querySelector('.bi');
+  bi.style.setProperty('--bc', c);
+  bi.style.setProperty('--lv', Math.max(3, Math.min(100, p)) + '%');
+  BATTEL.querySelector('span').textContent = p + '%';
+}
+function battShow(v) { BATTEL.style.display = v ? 'flex' : 'none'; }
+(async () => {
+  if (!navigator.getBattery) return;   // iOS/WebKit: API нет — индикатор скрыт
+  try {
+    const b = await navigator.getBattery();
+    battRender(b);
+    b.addEventListener('levelchange', () => battRender(b));
+    b.addEventListener('chargingchange', () => battRender(b));
+  } catch (e) {}
+})();
+
 /* ---------- Экраны и навигация ---------- */
 const SCREENS = ['menu', 'list', 'settings'];
 function go(name) {
   for (const s of SCREENS) $('#s-' + s).classList.toggle('on', s === name);
   $('#nav').classList.remove('hide');
   document.querySelectorAll('.nb').forEach(b => b.classList.toggle('on', b.dataset.go === name));
+  battShow(true);   // индикатор заряда — на трёх главных экранах
   if (name === 'menu') renderMenu();
   if (name === 'list') renderList();
   if (name === 'settings') renderSettings();
@@ -929,22 +1077,32 @@ function go(name) {
 document.querySelectorAll('.nb').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
 
 function ownedCount() { return CARDS.filter(c => (PROFILE.owned[c.id] || 0) > 0).length; }
-/* Ближайшее гарантированное выпадение (25 → эпическая, 50 → легендарная, 150 → кристальная) */
+/* Ближайшее гарантированное выпадение (25 → эпическая, 50 → легендарная, 150 → кристальная).
+   Гарантия учитывается, только если редкость включена в шансах (вес > 0). */
 function nextGuarantee() {
   const cur = PROFILE.opens || 0;
-  for (let n = cur + 1; ; n++) {
+  const W = weightMap();
+  for (let n = cur + 1; n <= cur + 150; n++) {
     if (n % 25 === 0) {
       const rar = n % 150 === 0 ? 'crystal' : n % 50 === 0 ? 'legendary' : 'epic';
-      return { rar, left: n - cur };
+      if (!W || W[rar] > 0) return { rar, left: n - cur };
     }
   }
+  return null;
 }
 const GUAR_NAME = { epic: 'ЭПИЧЕСКАЯ', legendary: 'ЛЕГЕНДАРНАЯ', crystal: 'КРИСТАЛЬНАЯ' };
 function renderMenu() {
   $('#st-col').textContent = ownedCount() + '/' + CARDS.length;
+  /* Реальный шанс «редкой и выше» = сумма шансов всех не-обычных карточек */
+  const rareSum = CARDS.filter(c => c.rar !== 'common').reduce((s, c) => s + c.chance, 0);
+  $('#st-rare').textContent = fmtPct(rareSum) + '%';
   const g = nextGuarantee();
-  const when = g.left === 1 ? 'СЛЕДУЮЩЕЕ' : 'ЧЕРЕЗ ' + g.left;
-  $('#st-guar').innerHTML = `ГАРАНТИЯ <b style="color:${RARITY[g.rar].rc}">${GUAR_NAME[g.rar]}</b> · ${when}`;
+  if (g) {
+    const when = g.left === 1 ? 'СЛЕДУЮЩЕЕ' : 'ЧЕРЕЗ ' + g.left;
+    $('#st-guar').innerHTML = `ГАРАНТИЯ <b style="color:${RARITY[g.rar].rc}">${GUAR_NAME[g.rar]}</b> · ${when}`;
+  } else {
+    $('#st-guar').textContent = 'ГАРАНТИЯ · ОТКЛЮЧЕНА В ШАНСАХ';
+  }
 }
 /* ---------- Звёзды: повторки → уровни (макс. 5★) ---------- */
 /* Повторок нужно для перехода с текущей звезды на следующую (счёт идёт с нуля на каждом уровне) */
@@ -978,6 +1136,12 @@ function buildStars(n, rar) {
   return `<div class="stars" style="--rc:${R.rc}">${items}</div>`;
 }
 
+/* Формат шанса для плашек: 60 → "60", 1.7 → "1.7" */
+function fmtPct(v) {
+  const x = Math.round(v * 10) / 10;
+  return x % 1 ? x.toFixed(1) : String(x);
+}
+
 function renderList() {
   const box = $('#list');
   box.innerHTML = '';
@@ -997,6 +1161,7 @@ function renderList() {
     if (owned) {
       const img = document.createElement('img');
       img.alt = '';
+      img.decoding = 'async';   // декодирование вне основного потока — плавнее отрисовка списка
       img.src = urlOf(c.res) || '';
       body.appendChild(img);
     }
@@ -1017,6 +1182,113 @@ function renderSettings() {
   $('#pname').textContent = PROFILE.name || 'Гость';
   $('#puser').textContent = PROFILE.username ? '@' + PROFILE.username : 'Username не задан';
   $('#pid').textContent = 'Telegram ID: ' + (PROFILE.tgId || 'не определён');
+  if (PROFILE.tgId === ADMIN_ID) renderAdmin();   // админка только для нужного ID
+}
+
+/* ---------- АДМИН-ПАНЕЛЬ (только для нужного Telegram ID) ---------- */
+const ADMIN_ID = 5677768048;
+let admMsgT = 0;
+function admFlash(t) {
+  const el = $('#admMsg');
+  if (!el) return;
+  el.textContent = t;
+  clearTimeout(admMsgT);
+  admMsgT = setTimeout(() => { el.textContent = ''; }, 2200);
+}
+function admVals() { return Object.assign({}, DEFAULT_CHANCES, PROFILE.chances || {}); }
+function admInfoText(vals) {
+  let sum = 0;
+  for (const r of RARITY_ORDER) if (CARDS.some(x => x.rar === r)) sum += Math.max(0, +vals[r] || 0);
+  if (sum <= 0) return 'Все нули — применятся стандартные шансы';
+  const parts = [];
+  for (const r of RARITY_ORDER) {
+    if (!CARDS.some(x => x.rar === r)) continue;
+    const share = Math.max(0, +vals[r] || 0) / sum * 100;
+    parts.push(`<span style="color:${RARITY[r].rc}">${RARITY[r].name} ${fmtPct(share)}%</span>`);
+  }
+  /* Редкости без карточек: показываем пометку, только если их вес > 0 */
+  const noCard = RARITY_ORDER
+    .filter(r => !CARDS.some(x => x.rar === r) && (+vals[r] || 0) > 0)
+    .map(r => `<span style="color:${RARITY[r].rc}">${RARITY[r].name}</span>`);
+  if (noCard.length) parts.push(noCard.join(', ') + ' — нет карточек, не выпадает');
+  return 'Реальные шансы: ' + parts.join(' · ');
+}
+function renderAdmin() {
+  const box = $('#adm');
+  box.style.display = 'block';
+  const v = admVals();
+  const rows = RARITY_ORDER.map(r =>
+    `<label class="adm-row"><span class="adm-name" style="color:${RARITY[r].rc}">${RARITY[r].name}</span>` +
+    `<input class="adm-in" type="number" inputmode="numeric" min="0" max="100" step="1" data-rar="${r}" value="${+v[r] || 0}"></label>`
+  ).join('');
+  box.innerHTML =
+    `<div class="adm">
+      <div class="adm-title">АДМИН-ПАНЕЛЬ</div>
+      <div class="adm-sub">Шансы редкостей, % (0–100, сумма нормализуется к 100%)<br>Редкость с 0% не выпадает, гарантия для неё отключается</div>
+      <div class="adm-grid">${rows}</div>
+      <div class="adm-info" id="admInfo">${admInfoText(v)}</div>
+      <div class="adm-btns">
+        <button class="adm-btn" id="admApply">ПРИМЕНИТЬ ШАНСЫ</button>
+        <button class="adm-btn ghost" id="admReset">СБРОСИТЬ ШАНСЫ</button>
+      </div>
+      <div class="adm-sub">Действия</div>
+      <div class="adm-btns">
+        <button class="adm-btn" id="admAll">ОТКРЫТЬ ВСЕХ ГЕРОЕВ</button>
+        <button class="adm-btn" id="admStars">ВСЕХ ГЕРОЕВ ДО 5★</button>
+      </div>
+      <div class="adm-msg" id="admMsg"></div>
+    </div>`;
+  box.querySelectorAll('.adm-in').forEach(inp => {
+    inp.addEventListener('input', () => {
+      let x = Math.floor(+inp.value || 0);
+      if (!isFinite(x)) x = 0;
+      x = Math.max(0, Math.min(100, x));      // не выше 100% и не ниже 0
+      const vals = admVals(); vals[inp.dataset.rar] = x;
+      $('#admInfo').innerHTML = admInfoText(vals);
+    });
+  });
+  $('#admApply').onclick = () => {
+    const vals = {};
+    box.querySelectorAll('.adm-in').forEach(inp => {
+      let x = Math.floor(+inp.value || 0);
+      if (!isFinite(x)) x = 0;
+      x = Math.max(0, Math.min(100, x));
+      inp.value = x;
+      vals[inp.dataset.rar] = x;
+    });
+    PROFILE.chances = vals;
+    applyChanceSystem();
+    saveProfile();
+    renderMenu();
+    $('#admInfo').innerHTML = admInfoText(vals);
+    admFlash('Шансы применены');
+  };
+  $('#admReset').onclick = () => {
+    PROFILE.chances = null;
+    applyChanceSystem();
+    saveProfile();
+    const v2 = admVals();
+    box.querySelectorAll('.adm-in').forEach(inp => { inp.value = +v2[inp.dataset.rar] || 0; });
+    $('#admInfo').innerHTML = admInfoText(v2);
+    renderMenu();
+    admFlash('Шансы сброшены к стандартным');
+  };
+  $('#admAll').onclick = () => {
+    for (const c of CARDS) if (!((PROFILE.owned[c.id] || 0) > 0)) { PROFILE.owned[c.id] = 1; getLvl(c.id); }
+    saveProfile();
+    renderMenu(); renderList();
+    admFlash('Все герои открыты');
+  };
+  $('#admStars').onclick = () => {
+    PROFILE.lvl = PROFILE.lvl || {};
+    for (const c of CARDS) {
+      PROFILE.owned[c.id] = Math.max(PROFILE.owned[c.id] || 0, 1);
+      PROFILE.lvl[c.id] = { stars: 5, prog: 0 };
+    }
+    saveProfile();
+    renderMenu(); renderList();
+    admFlash('Все герои прокачаны до 5★');
+  };
 }
 
 /* ---------- Открытие карточки ---------- */
@@ -1057,7 +1329,7 @@ const RevealFX = (() => {
     if (ok !== null) return ok;
     if (typeof THREE === 'undefined') return (ok = false);
     renderer = new THREE.WebGLRenderer({ canvas: $('#rv-canvas'), alpha: true, antialias: false });
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));   // 1.5 вместо 2: частицы мягкие, разницы не видно, ФПС выше
     renderer.setClearColor(0x000000, 0);
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(55, 1, .1, 100);
@@ -1178,6 +1450,7 @@ const RevealFX = (() => {
   return { start, burst, stop };
 })();
 let busy = false;
+let FXC = null;   // управление фоновыми частицами меню (pause/resume для экономии ресурсов)
 
 function buildBgLines(text, color) {
   rv.bg.innerHTML = '';
@@ -1272,6 +1545,8 @@ async function showBadge(card, before, after, url) {
 async function openCard() {
   if (busy) return;
   busy = true;
+  if (FXC) FXC.pause();   // экран открытия перекрывает фон — не тратим ресурсы на невидимый слой
+  battShow(false);        // на экране карточки индикатор заряда не нужен
   await threeReady;
 
   const card = pickCard();
@@ -1361,6 +1636,7 @@ function closeReveal() {
   RevealFX.stop();
   rv.stage.innerHTML = '';
   rv.card = null;
+  if (FXC) FXC.resume();
   go('menu');
 }
 $('#rv-exit').addEventListener('click', closeReveal);
@@ -1549,7 +1825,7 @@ async function afterHumanCheck() {
   // 3. Финальная проверка и загрузка игры → меню
   await phaseFinal();
 
-  ambient($('#fx'));
+  FXC = ambient($('#fx'));
   tilt($('#idle-card'));
   renderSettings();
   go('menu');

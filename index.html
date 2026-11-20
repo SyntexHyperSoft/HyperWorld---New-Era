@@ -165,6 +165,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 .pname{font-family:var(--head);font-size:22px;letter-spacing:.06em;color:#fff;word-break:break-word}
 .puser{font-family:var(--mono);font-size:14px;letter-spacing:.06em;color:var(--cy);margin-top:8px;word-break:break-all}
 .pid{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--dim);margin-top:8px}
+.pcloud{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--dim);margin-top:6px}
 
 /* ===== АДМИН-ПАНЕЛЬ (в настройках) ===== */
 #adm{width:min(84vw,320px);margin:18px auto 0}
@@ -234,6 +235,8 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
 .stars svg{width:14px;height:14px;fill:#1a232c;stroke:#33414d;stroke-width:.8}
 .stars svg.on{fill:var(--rc);stroke:#fff;stroke-width:.5;filter:drop-shadow(0 0 4px var(--rc))}
 .stars svg.pop{animation:starPop .8s cubic-bezier(.3,1.6,.5,1)}
+/* Защита карточек: запрет выделения и системного меню «Сохранить картинку» */
+img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 @keyframes starPop{0%{transform:scale(0) rotate(-200deg)}70%{transform:scale(1.4) rotate(10deg)}100%{transform:scale(1) rotate(0)}}
 .tile-foot{flex-direction:column;align-items:center;gap:6px}
 
@@ -303,7 +306,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
     </div>
     <div class="lb-size" id="lbSize" style="display:none"></div>
     <div class="lb-row2">
-      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.2</span>
+      <span class="lb-ver">HYPERWORLD_NEW_ERA_REL_1.0.0</span>
       <div class="lb-progress"><i id="lbFill"></i></div>
     </div>
     <div id="sound-hint">ТАПНИТЕ, ЧТОБЫ ВКЛЮЧИТЬ МУЗЫКУ</div>
@@ -376,6 +379,7 @@ html,body{height:100%;overflow:hidden;background:#07090c;color:var(--ink2);font-
         <div class="pname" id="pname"></div>
         <div class="puser" id="puser"></div>
         <div class="pid" id="pid"></div>
+        <div class="pcloud" id="pcloud"></div>
       </div>
       <!-- Админ-панель: показывается только для профиля с нужным Telegram ID -->
       <div id="adm" style="display:none"></div>
@@ -494,7 +498,9 @@ const RESOURCES = [
   { id: 'zeiron',  url: toRaw(NE + '%D0%97%D0%B5%D0%B9%D1%80%D0%BE%D0%BD.png'), type: 'image/png', size: 2778302, label: 'Зейрон' },
   { id: 'aurelia', url: toRaw(NE + '%D0%90%D1%83%D1%80%D0%B5%D0%BB%D0%B8%D1%8F.png'), type: 'image/png', size: 2303032, label: 'Аурелия' },
   { id: 'selestia', url: toRaw(NE + '%D0%A1%D0%B5%D0%BB%D0%B5%D1%81%D1%82%D0%B8%D1%8F.png'), type: 'image/png', size: 2116902, label: 'Селестия' },
-  { id: 'rayna', url: toRaw(NE + '%D0%A0%D1%8D%D0%B9%D0%BD%D0%B0.png'), type: 'image/png', size: 2369168, label: 'Рэйна' }
+  { id: 'rayna', url: toRaw(NE + '%D0%A0%D1%8D%D0%B9%D0%BD%D0%B0.png'), type: 'image/png', size: 2369168, label: 'Рэйна' },
+  { id: 'kageri', url: toRaw(NE + '%D0%9A%D0%B0%D0%B3%D1%8D%D1%80%D0%B8.png'), type: 'image/png', size: 1348936, label: 'Кагэри' },
+  { id: 'lunari', url: toRaw(NE + '%D0%9B%D1%8E%D0%BD%D0%B0%D1%80%D0%B8.png'), type: 'image/png', size: 1931404, label: 'Люнари' }
 ];
 const RES = Object.fromEntries(RESOURCES.map(r => [r.id, r]));
 
@@ -511,15 +517,17 @@ const RARITY = {
 
 /* Карточки. chance — реальный шанс в % (пересчитывается с учётом гарантий),
    roll — шанс обычного ролла (вычисляется в applyChanceSystem при запуске).
-   Порядок редкостей строго по убыванию: Обычная > Редкая (нет карточки) > Суперредкая > Эпическая > Легендарная > Кристальная.
-   Значения ниже — стандартные (60/18/12/6/3/1 без «Редкой»), при старте пересчитываются. */
+   Порядок редкостей строго по убыванию: Обычная > Редкая > Суперредкая > Эпическая > Легендарная (пока нет карточки) > Кристальная.
+   Значения ниже — стандартные (60/18/12/6/3/1, «Легендарная» не участвует), при старте пересчитываются. */
 const CARDS = [
-  { id: 'erilia',   name: 'Элирия',  rar: 'common',    chance: 73.17, roll: 76.22,  res: 'erilia',   fx: ['#ff8ad8', '#ffffff', '#9fe8ff'] },
-  { id: 'zeiron',   name: 'Зейрон',  rar: 'epic',      chance: 7.32,  roll: 5.54,   res: 'zeiron',   fx: ['#39ff6a', '#b6ff3d', '#3a0f5c'] },
-  { id: 'aurelia',  name: 'Аурелия', rar: 'legendary', chance: 3.66,  roll: 2.42,   res: 'aurelia',  fx: ['#ffd84a', '#fff3b0', '#ff9f1c'] },
-  { id: 'kurzhna',  name: 'Курэна',  rar: 'superrare', chance: 14.63, roll: 15.24,  res: 'kurzhna',  fx: ['#9d4dff', '#2a0a4a', '#e0b8ff'] },
-  { id: 'rayna',    name: 'Рэйна',   rar: 'crystal',   chance: 0.61,  roll: 0.29,   res: 'rayna',    fx: ['#ff3b4d', '#ff9aa5', '#2a0005'] },
-  { id: 'selestia', name: 'Селестия', rar: 'crystal',  chance: 0.61,  roll: 0.29,   res: 'selestia', fx: ['#3ad6ff', '#a9f0ff', '#1b4fd6'] }
+  { id: 'erilia',   name: 'Элирия',  rar: 'common',    chance: 61.86, roll: 64.43,  res: 'erilia',   fx: ['#ff8ad8', '#ffffff', '#9fe8ff'] },
+  { id: 'kurzhna',  name: 'Курэна',  rar: 'rare',      chance: 18.56, roll: 19.33,  res: 'kurzhna',  fx: ['#9d4dff', '#2a0a4a', '#e0b8ff'] },
+  { id: 'zeiron',   name: 'Зейрон',  rar: 'superrare', chance: 12.37, roll: 12.89,  res: 'zeiron',   fx: ['#39ff6a', '#b6ff3d', '#3a0f5c'] },
+  { id: 'aurelia',  name: 'Аурелия', rar: 'epic',      chance: 6.19,  roll: 4.36,   res: 'aurelia',  fx: ['#ffd84a', '#fff3b0', '#ff9f1c'] },
+  { id: 'rayna',    name: 'Рэйна',   rar: 'crystal',   chance: 0.26,  roll: 0.09,   res: 'rayna',    fx: ['#ff3b4d', '#ff9aa5', '#2a0005'] },
+  { id: 'selestia', name: 'Селестия', rar: 'crystal',  chance: 0.26,  roll: 0.09,   res: 'selestia', fx: ['#3ad6ff', '#a9f0ff', '#1b4fd6'] },
+  { id: 'kageri',   name: 'Кагэри',  rar: 'crystal',   chance: 0.26,  roll: 0.09,   res: 'kageri',   fx: ['#3dff7a', '#b7ffcf', '#0a1a10'] },
+  { id: 'lunari',   name: 'Люнари',  rar: 'crystal',   chance: 0.26,  roll: 0.09,   res: 'lunari',   fx: ['#3a8bff', '#a9d4ff', '#0a1f4d'] }
 ];
 
 /* Выбор карточки.
@@ -529,7 +537,7 @@ function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 /* Шансы редкостей по умолчанию (вес каждой редкости, %; сумма = 100).
    Строго по убыванию: Обычная 60 > Редкая 18 > Суперредкая 12 > Эпическая 6 > Легендарная 3 > Кристальная 1.
-   Карточки есть не у всех редкостей («Редкой» нет) — её вес показывается в админке,
+   Карточки есть не у всех редкостей (у «Легендарной» пока нет) — её вес показывается в админке,
    но в розыгрыше участвуют только редкости с карточками. */
 const DEFAULT_CHANCES = { common: 60, rare: 18, superrare: 12, epic: 6, legendary: 3, crystal: 1 };
 /* Гарантированных выпадений за цикл из 150 открытий: 3 эпические (каждая 25-я), 2 легендарные (каждая 50-я), 1 кристальная (каждая 150-я) */
@@ -578,8 +586,8 @@ function pickCard() {
   PROFILE.opens = n;
   const W = weightMap();                  // гарантии действуют, только если редкость включена в шансах
   if (n % 150 === 0 && (!W || W.crystal > 0)) return pickRandom(CARDS.filter(c => c.rar === 'crystal'));
-  if (n % 50 === 0 && (!W || W.legendary > 0)) return CARDS.find(c => c.rar === 'legendary');
-  if (n % 25 === 0 && (!W || W.epic > 0)) return CARDS.find(c => c.rar === 'epic');
+  if (n % 50 === 0 && CARDS.some(c => c.rar === 'legendary') && (!W || W.legendary > 0)) return pickRandom(CARDS.filter(c => c.rar === 'legendary'));
+  if (n % 25 === 0 && (!W || W.epic > 0)) return pickRandom(CARDS.filter(c => c.rar === 'epic'));
   let total = 0;
   for (const c of CARDS) total += c.roll;      // нормируем роллы: при ручных шансах сумма может быть ≠ 100
   let r = Math.random() * total;
@@ -762,6 +770,54 @@ function mergeSave(a, b) {
   return { owned, lvl, opens: Math.max(a.opens || 0, b.opens || 0) };
 }
 
+/* ---------- Облачный профиль Serverless: общая база с чат-ботом ---------- */
+/* Тот же players, что у чат-игры: коллекция, уровни и счётчик открытий общие.
+   Работает, когда мини-апп хостится платформой Telegram Cloud; без неё — тихий
+   фолбэк на CloudStorage и IndexedDB. */
+function srvOk() { return !!(tg && tg.Serverless && typeof tg.Serverless.call === 'function'); }
+function srvCall(name, payload, ms = 8000) {
+  return new Promise((resolve, reject) => {
+    if (!srvOk()) return reject(new Error('Serverless недоступен'));
+    const t = setTimeout(() => reject(new Error('timeout')), ms);
+    try {
+      tg.Serverless.call(name, payload || {}, (err, res) => {
+        clearTimeout(t);
+        if (err) reject(err); else resolve(res);
+      });
+    } catch (e) { clearTimeout(t); reject(e); }
+  });
+}
+function cloudStatus(text, ok) {
+  const el = document.getElementById('pcloud');
+  if (el) { el.textContent = text; el.style.color = ok ? '#3dff7a' : '#8a8f98'; }
+}
+let srvSaveT = null, srvDirty = false;
+function srvSaveProfile(chancesToo) {
+  if (!srvOk()) return;
+  srvDirty = true;
+  clearTimeout(srvSaveT);
+  srvSaveT = setTimeout(() => srvFlushProfile(chancesToo), 2000);
+}
+/* Немедленная отправка несохранённого прогресса: закрыл мини-апп — ничего не потерялось */
+function srvFlushProfile(chancesToo) {
+  if (!srvOk() || !srvDirty) return;
+  clearTimeout(srvSaveT);
+  srvSaveT = null;
+  srvDirty = false;
+  const payload = { owned: PROFILE.owned || {}, lvl: PROFILE.lvl || {}, opens: PROFILE.opens || 0 };
+  /* Шансы уходят в облако только явным действием админа (применить/сброс):
+     автосейвы шансы не передают, иначе устаревший клиент вернёт только что
+     удалённые настройки */
+  if (chancesToo) payload.chances = PROFILE.chances ?? null;
+  srvCall('saveProfile', payload)
+    .then(() => cloudStatus('☁️ Облако: профиль сохранён', true))
+    .catch(() => { srvDirty = true; cloudStatus('☁️ Облако недоступно', false); });
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') srvFlushProfile();
+});
+addEventListener('pagehide', () => srvFlushProfile());
+
 let PROFILE = { owned: {}, id: 'HW-' + Math.random().toString(16).slice(2, 10).toUpperCase() };
 applyChanceSystem();   // стартовые шансы (после загрузки профиля пересчитаются, если админ менял их)
 async function loadProfile() {
@@ -784,13 +840,43 @@ async function loadProfile() {
     PROFILE.opens = m.opens;
     if (!PROFILE.chances && cloud.chances) PROFILE.chances = cloud.chances;   // шансы админа из облака
   }
+  /* Серверный профиль (общая база с чат-ботом): слияние по максимуму,
+     прогресс из чата и из игры объединяется без потерь */
+  if (srvOk()) {
+    cloudStatus('☁️ Синхронизация…', false);
+    try {
+      const srv = await srvCall('getProfile');
+      if (srv) {
+        const m = mergeSave(PROFILE, srv);
+        PROFILE.owned = m.owned;
+        PROFILE.lvl = m.lvl;
+        PROFILE.opens = m.opens;
+        /* Шансы — глобальная настройка: сервер всегда прав, локальные значения
+           перезаписываются (иначе заевшее локальное значение блокирует синк) */
+        PROFILE.chances = (srv.chances && typeof srv.chances === 'object') ? srv.chances : null;
+        PROFILE.isAdmin = !!srv.isAdmin;
+        cloudStatus('☁️ Облако: профиль подключён', true);
+      } else {
+        cloudStatus('☁️ Облако недоступно', false);
+      }
+    } catch (e) {
+      cloudStatus('☁️ Облако недоступно', false);
+    }
+  } else {
+    cloudStatus('☁️ Локальный режим', false);
+  }
   applyChanceSystem();
   saveProfile();
 }
-function saveProfile() {
+function saveProfile(chancesToo) {
   kvSet('profile', PROFILE).catch(() => {});
-  cloudSet({ owned: PROFILE.owned || {}, lvl: PROFILE.lvl || {}, opens: PROFILE.opens || 0, chances: PROFILE.chances || undefined });
+  cloudSet({ owned: PROFILE.owned || {}, lvl: PROFILE.lvl || {}, opens: PROFILE.opens || 0, chances: PROFILE.chances ?? null });
+  srvSaveProfile(chancesToo);
 }
+/* Карточки нельзя сохранить через контекстное меню или перетащить (дополнительно
+   к protect_content в чате): веб-страница не может запретить всё, но базовое — да */
+document.addEventListener('contextmenu', e => { if (e.target.tagName === 'IMG') e.preventDefault(); });
+document.addEventListener('dragstart', e => { if (e.target.tagName === 'IMG') e.preventDefault(); });
 
 /* ---------- Музыка: только во время загрузки ---------- */
 let bgm = null;
@@ -1108,14 +1194,14 @@ document.querySelectorAll('.nb').forEach(b => b.addEventListener('click', () => 
 
 function ownedCount() { return CARDS.filter(c => (PROFILE.owned[c.id] || 0) > 0).length; }
 /* Ближайшее гарантированное выпадение (25 → эпическая, 50 → легендарная, 150 → кристальная).
-   Гарантия учитывается, только если редкость включена в шансах (вес > 0). */
+   Гарантия учитывается, только если у редкости есть карточки и она включена в шансах (вес > 0). */
 function nextGuarantee() {
   const cur = PROFILE.opens || 0;
   const W = weightMap();
   for (let n = cur + 1; n <= cur + 150; n++) {
     if (n % 25 === 0) {
       const rar = n % 150 === 0 ? 'crystal' : n % 50 === 0 ? 'legendary' : 'epic';
-      if (!W || W[rar] > 0) return { rar, left: n - cur };
+      if (CARDS.some(c => c.rar === rar) && (!W || W[rar] > 0)) return { rar, left: n - cur };
     }
   }
   return null;
@@ -1212,7 +1298,7 @@ function renderSettings() {
   $('#pname').textContent = PROFILE.name || 'Гость';
   $('#puser').textContent = PROFILE.username ? '@' + PROFILE.username : 'Username не задан';
   $('#pid').textContent = 'Telegram ID: ' + (PROFILE.tgId || 'не определён');
-  if (PROFILE.tgId === ADMIN_ID) renderAdmin();   // админка только для нужного ID
+  if (PROFILE.tgId === ADMIN_ID || PROFILE.isAdmin) renderAdmin();   // админка: владелец или админ по базе
 }
 
 /* ---------- АДМИН-ПАНЕЛЬ (только для нужного Telegram ID) ---------- */
@@ -1288,7 +1374,7 @@ function renderAdmin() {
     });
     PROFILE.chances = vals;
     applyChanceSystem();
-    saveProfile();
+    saveProfile(true);
     renderMenu();
     $('#admInfo').innerHTML = admInfoText(vals);
     admFlash('Шансы применены');
@@ -1296,7 +1382,7 @@ function renderAdmin() {
   $('#admReset').onclick = () => {
     PROFILE.chances = null;
     applyChanceSystem();
-    saveProfile();
+    saveProfile(true);
     const v2 = admVals();
     box.querySelectorAll('.adm-in').forEach(inp => { inp.value = +v2[inp.dataset.rar] || 0; });
     $('#admInfo').innerHTML = admInfoText(v2);

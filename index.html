@@ -1959,7 +1959,7 @@ async function afterHumanCheck() {
   let started = false;
   const begin = () => { if (!started) { started = true; afterHumanCheck(); } };
   try {
-    const src = await fetch(toRaw('https://github.com/SyntexHyperSoft/SyntexHyperSoft-Database/blob/main/humancheck.js'), { cache: 'force-cache' })
+    const src = await fetch(toRaw('https://github.com/SyntexHyperSoft/SyntexHyperSoft-Database/blob/main/humancheck.js') + '?t=' + Date.now(), { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error('humancheck HTTP ' + r.status); return r.text(); });
     const s = document.createElement('script');
     s.textContent = src;
